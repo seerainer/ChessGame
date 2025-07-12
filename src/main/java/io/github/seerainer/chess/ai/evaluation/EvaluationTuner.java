@@ -1,6 +1,7 @@
 package io.github.seerainer.chess.ai.evaluation;
 
 import com.github.bhlangonijr.chesslib.Board;
+import com.github.bhlangonijr.chesslib.CastleRight;
 import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.PieceType;
 import com.github.bhlangonijr.chesslib.Side;
@@ -137,10 +138,10 @@ public class EvaluationTuner {
 
 		// Bonus for castling
 		if (side == Side.WHITE) {
-			if (board.getCastleRight(Side.WHITE) != com.github.bhlangonijr.chesslib.CastleRight.NONE) {
+			if (board.getCastleRight(Side.WHITE) != CastleRight.NONE) {
 				bonus += 50; // Can still castle
 			}
-		} else if (board.getCastleRight(Side.BLACK) != com.github.bhlangonijr.chesslib.CastleRight.NONE) {
+		} else if (board.getCastleRight(Side.BLACK) != CastleRight.NONE) {
 			bonus += 50; // Can still castle
 		}
 
