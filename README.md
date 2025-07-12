@@ -105,7 +105,7 @@ The native executable will be created in `build/native/nativeCompile/`.
 
 Launch the application and you'll see the chess board with an intuitive interface:
 
-- **Drag and drop** pieces to make moves
+- **Mouse click** pieces to make moves
 - **Menu bar** for game options and settings
 
 ### Game Controls
