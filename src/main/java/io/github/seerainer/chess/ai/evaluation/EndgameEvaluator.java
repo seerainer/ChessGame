@@ -1,8 +1,10 @@
 package io.github.seerainer.chess.ai.evaluation;
 
 import com.github.bhlangonijr.chesslib.Board;
+import com.github.bhlangonijr.chesslib.File;
 import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.PieceType;
+import com.github.bhlangonijr.chesslib.Rank;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.Square;
 
@@ -391,8 +393,8 @@ public class EndgameEvaluator {
 		// Check adjacent files
 		for (var f = file - 1; f <= file + 1; f += 2) {
 			if (f >= 0 && f < 8) {
-				final var checkSquare = Square.encode(com.github.bhlangonijr.chesslib.Rank.allRanks[rank],
-						com.github.bhlangonijr.chesslib.File.allFiles[f]);
+				final var checkSquare = Square.encode(Rank.allRanks[rank],
+						File.allFiles[f]);
 				final var piece = board.getPiece(checkSquare);
 				if (piece.getPieceType() == PieceType.PAWN && piece.getPieceSide() == side) {
 					return true;
@@ -502,8 +504,8 @@ public class EndgameEvaluator {
 
 		for (var r = rank + direction; r >= 0 && r < 8; r += direction) {
 			for (var f = Math.max(0, file - 1); f <= Math.min(7, file + 1); f++) {
-				final var checkSquare = Square.encode(com.github.bhlangonijr.chesslib.Rank.allRanks[r],
-						com.github.bhlangonijr.chesslib.File.allFiles[f]);
+				final var checkSquare = Square.encode(Rank.allRanks[r],
+						File.allFiles[f]);
 				final var piece = board.getPiece(checkSquare);
 				if (piece.getPieceType() == PieceType.PAWN && piece.getPieceSide() != side) {
 					return false;
