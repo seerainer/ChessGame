@@ -5,7 +5,7 @@ A sophisticated chess application built in Java with an advanced AI engine, feat
 ## Features
 
 ### 🎮 Game Features
-- **Interactive Chess Board**: Full-featured chess board with drag-and-drop piece movement
+- **Interactive Chess Board**: Full-featured chess board
 - **Game Modes**: Human vs Human, Human vs AI, AI vs AI
 - **Opening Book**: Extensive opening repertoire for strategic play
 - **Move Validation**: Complete rule enforcement including castling, en passant, and promotion
