@@ -2,7 +2,9 @@ package io.github.seerainer.chess.ai;
 
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Piece;
+import com.github.bhlangonijr.chesslib.PieceType;
 import com.github.bhlangonijr.chesslib.Side;
+import com.github.bhlangonijr.chesslib.Square;
 
 import io.github.seerainer.chess.ai.search.OptimizedQuiescenceSearch;
 
@@ -26,12 +28,12 @@ public class SearchAlgorithms {
 	private static final int NODE_UPPER_BOUND = 2;
 
 	private static boolean hasNonPawnMaterial(final Board board, final Side side) {
-		for (final var square : com.github.bhlangonijr.chesslib.Square.values()) {
-			if (square != com.github.bhlangonijr.chesslib.Square.NONE) {
+		for (final var square : Square.values()) {
+			if (square != Square.NONE) {
 				final var piece = board.getPiece(square);
 				if (piece != Piece.NONE && piece.getPieceSide() == side
-						&& piece.getPieceType() != com.github.bhlangonijr.chesslib.PieceType.PAWN
-						&& piece.getPieceType() != com.github.bhlangonijr.chesslib.PieceType.KING) {
+						&& piece.getPieceType() != PieceType.PAWN
+						&& piece.getPieceType() != PieceType.KING) {
 					return true;
 				}
 			}
