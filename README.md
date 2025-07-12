@@ -178,7 +178,6 @@ src/
 The application uses a configuration system with the following key areas:
 
 - **AI Settings**: Search parameters, evaluation weights, time management
-- **UI Settings**: Board appearance, move animation, sound effects
 - **Memory Management**: Heap limits, garbage collection tuning
 - **Performance**: Threading, parallel search configuration
 
