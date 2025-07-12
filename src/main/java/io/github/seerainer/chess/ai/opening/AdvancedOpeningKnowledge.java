@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Set;
 
 import com.github.bhlangonijr.chesslib.Board;
+import com.github.bhlangonijr.chesslib.CastleRight;
 import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.PieceType;
 import com.github.bhlangonijr.chesslib.Side;
@@ -62,7 +63,7 @@ public class AdvancedOpeningKnowledge {
 			"d1h5");
 
 	private static boolean canCastle(final Board board, final Side side) {
-		return board.getCastleRight(side) != com.github.bhlangonijr.chesslib.CastleRight.NONE;
+		return board.getCastleRight(side) != CastleRight.NONE;
 	}
 
 	// Helper methods for detailed evaluation
