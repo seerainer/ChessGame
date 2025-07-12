@@ -362,8 +362,8 @@ public class PawnStructureEvaluatorAdvanced implements EvaluationComponent {
 				final var checkRank = rank + rankOffset;
 
 				if (checkFile >= 0 && checkFile <= 7 && checkRank >= 0 && checkRank <= 7) {
-					final var checkSquare = Square.encode(com.github.bhlangonijr.chesslib.Rank.allRanks[checkRank],
-							com.github.bhlangonijr.chesslib.File.allFiles[checkFile]);
+					final var checkSquare = Square.encode(Rank.allRanks[checkRank],
+							File.allFiles[checkFile]);
 					if (board.getPiece(checkSquare) == friendlyPawn) {
 						return true;
 					}
