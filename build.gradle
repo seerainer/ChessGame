@@ -1,0 +1,249 @@
+plugins {
+    id 'java'
+    id 'eclipse'
+    id 'application'
+    id 'org.graalvm.buildtools.native' version '0.10.6'
+}
+
+group = 'io.github.seerainer.chess'
+version = '0.1.0'
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://jitpack.io' }
+}
+
+ext {
+    swtArtifact = 'org.eclipse.swt.'
+    os = System.getProperty("os.name").toLowerCase()
+    arch = System.getProperty("os.arch")
+    normalizedArch = arch
+    swtWS = 'unknown'
+    swtOS = 'unknown'
+}
+
+switch (os) {
+    case 'linux':
+        swtArtifact += 'gtk.linux.'
+        swtWS = 'gtk'
+        swtOS = 'linux'
+        break
+    case 'mac os x':
+        swtArtifact += 'cocoa.macosx.'
+        swtWS = 'cocoa'
+        swtOS = 'macosx'
+        break
+    default:
+        if (os.startsWith("win")) {
+            swtArtifact += 'win32.win32.'
+            swtWS = 'win32'
+            swtOS = 'win32'
+        }
+}
+
+switch (arch) {
+    case ['amd64', 'x86_64']:
+        swtArtifact += 'x86_64'
+        normalizedArch = 'x86_64'
+        break
+    case 'aarch64':
+        swtArtifact += 'aarch64'
+        normalizedArch = 'aarch64'
+        break
+}
+
+dependencies {
+    implementation("org.eclipse.platform:${swtArtifact}:3.130.0") {
+        exclude group: 'org.eclipse.platform', module: 'org.eclipse.swt'    
+    }
+    implementation 'com.github.bhlangonijr:chesslib:1.3.4'
+    
+    // Testing dependencies
+    testImplementation 'org.junit.jupiter:junit-jupiter:6.0.0-M1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.0-M1'
+    testImplementation 'org.mockito:mockito-core:5.18.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.18.0'
+    testImplementation 'org.assertj:assertj-core:4.0.0-M1'
+    
+    // Explicitly declare test runtime engine
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.0-M1'
+    
+    // Performance testing
+    testImplementation 'org.openjdk.jmh:jmh-core:1.37'
+    testAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
+}
+
+application {
+    mainClass = 'io.github.seerainer.chess.Main'
+}
+
+run {
+    if (os.contains("mac")) {
+        jvmArgs += '-XstartOnFirstThread'
+    }
+    jvmArgs += '--enable-native-access=ALL-UNNAMED'
+}
+
+// Test configuration
+test {
+    useJUnitPlatform()
+    
+    // Increase memory for tests
+    minHeapSize = "256m"
+    maxHeapSize = "2g"
+    
+    // Enable native access for tests
+    jvmArgs += '--enable-native-access=ALL-UNNAMED'
+    
+    // Test output configuration
+    testLogging {
+        events = ["passed", "skipped", "failed"]
+        exceptionFormat = "full"
+        showStandardStreams = false
+    }
+    
+    // Parallel test execution
+    maxParallelForks = Runtime.runtime.availableProcessors()
+    
+    // Test timeout
+    timeout = Duration.ofMinutes(10)
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_24
+    targetCompatibility = JavaVersion.VERSION_24
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(24)
+    }
+}
+
+// Source sets for better organization
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java']
+        }
+        resources {
+            srcDirs = ['src/main/resources']
+        }
+    }
+    test {
+        java {
+            srcDirs = ['src/test/java']
+        }
+        resources {
+            srcDirs = ['src/test/resources']
+        }
+    }
+}
+
+graalvmNative {
+    testSupport = false
+    toolchainDetection = true
+
+    binaries {
+        main {
+            imageName = 'ChessGame'
+            mainClass = application.mainClass
+            buildArgs.add('-march=compatibility')
+            buildArgs.add('-Ob')
+            buildArgs.add('--enable-native-access=ALL-UNNAMED')
+            buildArgs.add('--no-fallback')
+            buildArgs.add('-R:MinHeapSize=256m')
+            buildArgs.add('-R:MaxHeapSize=1g')
+            buildArgs.add('-R:MaxNewSize=512m')
+            useFatJar = true
+        }
+    }
+}
+
+tasks.withType(Jar).configureEach {
+    exclude(
+        'META-INF/ECLIPSE*',
+    	'META-INF/maven/**/**/*',
+    	'META-INF/versions/9/*',
+    	'META-INF/*.txt',
+        'about_files/*',
+        'version.txt',
+        '.api_description',
+        'about.html',
+        'fragment.properties',
+        'libswt*.jnilib',
+        'libswt*.so',
+        'swt*.dll',
+        'WebView2Loader.dll',
+        'module-info.class',
+        'org/eclipse/swt/awt/*',
+        'org/eclipse/swt/opengl/*'
+    )
+    manifest {
+        attributes 'Main-Class': application.mainClass
+        attributes 'SWT-WS': swtWS
+        attributes 'SWT-OS': swtOS
+        attributes 'SWT-Arch': normalizedArch
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// Custom task to run specific test classes
+task runChessAITest(type: JavaExec) {
+    description = 'Run ChessAI performance tests'
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.runtimeClasspath
+    mainClass = 'io.github.seerainer.chess.test.ChessAITest'
+    jvmArgs += '--enable-native-access=ALL-UNNAMED'
+    jvmArgs += '-Xmx2g'
+}
+
+// Custom task to run search engine integration tests
+task runSearchEngineTest(type: JavaExec) {
+    description = 'Run Search Engine integration tests'
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.runtimeClasspath
+    mainClass = 'io.github.seerainer.chess.test.SearchEngineIntegrationTest'
+    jvmArgs += '--enable-native-access=ALL-UNNAMED'
+    jvmArgs += '-Xmx2g'
+}
+
+// Custom task to run simple component tests
+task runSimpleTest(type: JavaExec) {
+    description = 'Run simple component tests'
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.runtimeClasspath
+    mainClass = 'io.github.seerainer.chess.test.SimpleTest'
+    jvmArgs += '--enable-native-access=ALL-UNNAMED'
+    jvmArgs += '-Xmx1g'
+}
+
+// Custom task to run advanced search engine tests
+task runAdvancedSearchTest(type: JavaExec) {
+    description = 'Run Advanced Search Engine integration tests'
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.runtimeClasspath
+    mainClass = 'io.github.seerainer.chess.test.AdvancedSearchEngineTest'
+    jvmArgs += '--enable-native-access=ALL-UNNAMED'
+    jvmArgs += '-Xmx2g'
+}
+
+// Custom task to run all custom tests
+task runAllCustomTests {
+    description = 'Run all custom test suites'
+    group = 'verification'
+    dependsOn runSimpleTest, runChessAITest, runSearchEngineTest, runAdvancedSearchTest
+}
+
+// Performance benchmarking task
+task benchmark(type: JavaExec) {
+    description = 'Run performance benchmarks'
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath + sourceSets.main.runtimeClasspath
+    mainClass = 'io.github.seerainer.chess.benchmark.PerformanceBenchmark'
+    jvmArgs += '--enable-native-access=ALL-UNNAMED'
+    jvmArgs += '-Xmx4g'
+    jvmArgs += '-server'
+    jvmArgs += '-XX:+UseG1GC'
+}

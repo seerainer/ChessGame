@@ -1,0 +1,741 @@
+{
+  "reflection": [
+    {
+      "type": "org.eclipse.swt.widgets.Display"
+    },
+    {
+      "type": "sun.security.provider.DRBG",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.security.SecureRandomParameters"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "sun.security.provider.SHA",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "sun.security.provider.SHA2$SHA256",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "glob": "org/eclipse/swt/internal/Library.class"
+    }
+  ],
+  "bundles": [],
+  "jni": [
+    {
+      "type": "io.github.seerainer.chess.Main",
+      "methods": [
+        {
+          "name": "main",
+          "parameterTypes": [
+            "java.lang.String[]"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "java.lang.Boolean",
+      "methods": [
+        {
+          "name": "getBoolean",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "java.lang.Throwable",
+      "methods": [
+        {
+          "name": "addSuppressed",
+          "parameterTypes": [
+            "java.lang.Throwable"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.gdip.GdiplusStartupInput",
+      "fields": [
+        {
+          "name": "DebugEventCallback"
+        },
+        {
+          "name": "GdiplusVersion"
+        },
+        {
+          "name": "SuppressBackgroundThread"
+        },
+        {
+          "name": "SuppressExternalCodecs"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.ACTCTX",
+      "fields": [
+        {
+          "name": "cbSize"
+        },
+        {
+          "name": "dwFlags"
+        },
+        {
+          "name": "hModule"
+        },
+        {
+          "name": "lpApplicationName"
+        },
+        {
+          "name": "lpAssemblyDirectory"
+        },
+        {
+          "name": "lpResourceName"
+        },
+        {
+          "name": "lpSource"
+        },
+        {
+          "name": "wLangId"
+        },
+        {
+          "name": "wProcessorArchitecture"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.INITCOMMONCONTROLSEX",
+      "fields": [
+        {
+          "name": "dwICC"
+        },
+        {
+          "name": "dwSize"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.LOGFONT",
+      "fields": [
+        {
+          "name": "lfCharSet"
+        },
+        {
+          "name": "lfClipPrecision"
+        },
+        {
+          "name": "lfEscapement"
+        },
+        {
+          "name": "lfFaceName"
+        },
+        {
+          "name": "lfHeight"
+        },
+        {
+          "name": "lfItalic"
+        },
+        {
+          "name": "lfOrientation"
+        },
+        {
+          "name": "lfOutPrecision"
+        },
+        {
+          "name": "lfPitchAndFamily"
+        },
+        {
+          "name": "lfQuality"
+        },
+        {
+          "name": "lfStrikeOut"
+        },
+        {
+          "name": "lfUnderline"
+        },
+        {
+          "name": "lfWeight"
+        },
+        {
+          "name": "lfWidth"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.MENUBARINFO",
+      "fields": [
+        {
+          "name": "bottom"
+        },
+        {
+          "name": "cbSize"
+        },
+        {
+          "name": "fBarFocused"
+        },
+        {
+          "name": "fFocused"
+        },
+        {
+          "name": "hMenu"
+        },
+        {
+          "name": "hwndMenu"
+        },
+        {
+          "name": "left"
+        },
+        {
+          "name": "right"
+        },
+        {
+          "name": "top"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.MENUINFO",
+      "fields": [
+        {
+          "name": "cbSize"
+        },
+        {
+          "name": "cyMax"
+        },
+        {
+          "name": "dwContextHelpID"
+        },
+        {
+          "name": "dwMenuData"
+        },
+        {
+          "name": "dwStyle"
+        },
+        {
+          "name": "fMask"
+        },
+        {
+          "name": "hbrBack"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.MENUITEMINFO",
+      "fields": [
+        {
+          "name": "cbSize"
+        },
+        {
+          "name": "cch"
+        },
+        {
+          "name": "dwItemData"
+        },
+        {
+          "name": "dwTypeData"
+        },
+        {
+          "name": "fMask"
+        },
+        {
+          "name": "fState"
+        },
+        {
+          "name": "fType"
+        },
+        {
+          "name": "hSubMenu"
+        },
+        {
+          "name": "hbmpChecked"
+        },
+        {
+          "name": "hbmpItem"
+        },
+        {
+          "name": "hbmpUnchecked"
+        },
+        {
+          "name": "wID"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.MINMAXINFO",
+      "fields": [
+        {
+          "name": "ptMaxPosition_x"
+        },
+        {
+          "name": "ptMaxPosition_y"
+        },
+        {
+          "name": "ptMaxSize_x"
+        },
+        {
+          "name": "ptMaxSize_y"
+        },
+        {
+          "name": "ptMaxTrackSize_x"
+        },
+        {
+          "name": "ptMaxTrackSize_y"
+        },
+        {
+          "name": "ptMinTrackSize_x"
+        },
+        {
+          "name": "ptMinTrackSize_y"
+        },
+        {
+          "name": "ptReserved_x"
+        },
+        {
+          "name": "ptReserved_y"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.MONITORINFO",
+      "fields": [
+        {
+          "name": "cbSize"
+        },
+        {
+          "name": "dwFlags"
+        },
+        {
+          "name": "rcMonitor_bottom"
+        },
+        {
+          "name": "rcMonitor_left"
+        },
+        {
+          "name": "rcMonitor_right"
+        },
+        {
+          "name": "rcMonitor_top"
+        },
+        {
+          "name": "rcWork_bottom"
+        },
+        {
+          "name": "rcWork_left"
+        },
+        {
+          "name": "rcWork_right"
+        },
+        {
+          "name": "rcWork_top"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.MSG",
+      "fields": [
+        {
+          "name": "hwnd"
+        },
+        {
+          "name": "lParam"
+        },
+        {
+          "name": "message"
+        },
+        {
+          "name": "time"
+        },
+        {
+          "name": "wParam"
+        },
+        {
+          "name": "x"
+        },
+        {
+          "name": "y"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.NONCLIENTMETRICS",
+      "fields": [
+        {
+          "name": "cbSize"
+        },
+        {
+          "name": "iBorderWidth"
+        },
+        {
+          "name": "iCaptionHeight"
+        },
+        {
+          "name": "iCaptionWidth"
+        },
+        {
+          "name": "iMenuHeight"
+        },
+        {
+          "name": "iMenuWidth"
+        },
+        {
+          "name": "iScrollHeight"
+        },
+        {
+          "name": "iScrollWidth"
+        },
+        {
+          "name": "iSmCaptionHeight"
+        },
+        {
+          "name": "iSmCaptionWidth"
+        },
+        {
+          "name": "lfCaptionFont"
+        },
+        {
+          "name": "lfMenuFont"
+        },
+        {
+          "name": "lfMessageFont"
+        },
+        {
+          "name": "lfSmCaptionFont"
+        },
+        {
+          "name": "lfStatusFont"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.PAINTSTRUCT",
+      "fields": [
+        {
+          "name": "bottom"
+        },
+        {
+          "name": "fErase"
+        },
+        {
+          "name": "fIncUpdate"
+        },
+        {
+          "name": "fRestore"
+        },
+        {
+          "name": "hdc"
+        },
+        {
+          "name": "left"
+        },
+        {
+          "name": "rgbReserved"
+        },
+        {
+          "name": "right"
+        },
+        {
+          "name": "top"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.POINT",
+      "fields": [
+        {
+          "name": "x"
+        },
+        {
+          "name": "y"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.RECT",
+      "fields": [
+        {
+          "name": "bottom"
+        },
+        {
+          "name": "left"
+        },
+        {
+          "name": "right"
+        },
+        {
+          "name": "top"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.STARTUPINFO",
+      "fields": [
+        {
+          "name": "cb"
+        },
+        {
+          "name": "cbReserved2"
+        },
+        {
+          "name": "dwFillAttribute"
+        },
+        {
+          "name": "dwFlags"
+        },
+        {
+          "name": "dwX"
+        },
+        {
+          "name": "dwXCountChars"
+        },
+        {
+          "name": "dwXSize"
+        },
+        {
+          "name": "dwY"
+        },
+        {
+          "name": "dwYCountChars"
+        },
+        {
+          "name": "dwYSize"
+        },
+        {
+          "name": "hStdError"
+        },
+        {
+          "name": "hStdInput"
+        },
+        {
+          "name": "hStdOutput"
+        },
+        {
+          "name": "lpDesktop"
+        },
+        {
+          "name": "lpReserved"
+        },
+        {
+          "name": "lpReserved2"
+        },
+        {
+          "name": "lpTitle"
+        },
+        {
+          "name": "wShowWindow"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.WINDOWPLACEMENT",
+      "fields": [
+        {
+          "name": "bottom"
+        },
+        {
+          "name": "flags"
+        },
+        {
+          "name": "left"
+        },
+        {
+          "name": "length"
+        },
+        {
+          "name": "ptMaxPosition_x"
+        },
+        {
+          "name": "ptMaxPosition_y"
+        },
+        {
+          "name": "ptMinPosition_x"
+        },
+        {
+          "name": "ptMinPosition_y"
+        },
+        {
+          "name": "right"
+        },
+        {
+          "name": "showCmd"
+        },
+        {
+          "name": "top"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.WINDOWPOS",
+      "fields": [
+        {
+          "name": "cx"
+        },
+        {
+          "name": "cy"
+        },
+        {
+          "name": "flags"
+        },
+        {
+          "name": "hwnd"
+        },
+        {
+          "name": "hwndInsertAfter"
+        },
+        {
+          "name": "x"
+        },
+        {
+          "name": "y"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.WNDCLASS",
+      "fields": [
+        {
+          "name": "cbClsExtra"
+        },
+        {
+          "name": "cbWndExtra"
+        },
+        {
+          "name": "hCursor"
+        },
+        {
+          "name": "hIcon"
+        },
+        {
+          "name": "hInstance"
+        },
+        {
+          "name": "hbrBackground"
+        },
+        {
+          "name": "lpfnWndProc"
+        },
+        {
+          "name": "lpszClassName"
+        },
+        {
+          "name": "lpszMenuName"
+        },
+        {
+          "name": "style"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.internal.win32.version.OSVERSIONINFOEX",
+      "fields": [
+        {
+          "name": "dwBuildNumber"
+        },
+        {
+          "name": "dwMajorVersion"
+        },
+        {
+          "name": "dwMinorVersion"
+        },
+        {
+          "name": "dwOSVersionInfoSize"
+        },
+        {
+          "name": "dwPlatformId"
+        },
+        {
+          "name": "szCSDVersion"
+        },
+        {
+          "name": "wProductType"
+        },
+        {
+          "name": "wReserved"
+        },
+        {
+          "name": "wServicePackMajor"
+        },
+        {
+          "name": "wServicePackMinor"
+        },
+        {
+          "name": "wSuiteMask"
+        }
+      ]
+    },
+    {
+      "type": "org.eclipse.swt.widgets.Display",
+      "methods": [
+        {
+          "name": "foregroundIdleProc",
+          "parameterTypes": [
+            "long",
+            "long",
+            "long"
+          ]
+        },
+        {
+          "name": "messageProc",
+          "parameterTypes": [
+            "long",
+            "long",
+            "long",
+            "long"
+          ]
+        },
+        {
+          "name": "msgFilterProc",
+          "parameterTypes": [
+            "long",
+            "long",
+            "long"
+          ]
+        },
+        {
+          "name": "windowProc",
+          "parameterTypes": [
+            "long",
+            "long",
+            "long",
+            "long"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "sun.launcher.LauncherHelper",
+      "fields": [
+        {
+          "name": "isStaticMain"
+        },
+        {
+          "name": "noArgMain"
+        }
+      ],
+      "methods": [
+        {
+          "name": "getApplicationClass",
+          "parameterTypes": []
+        }
+      ]
+    }
+  ]
+}
