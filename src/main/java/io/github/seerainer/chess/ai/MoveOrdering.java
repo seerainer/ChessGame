@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Piece;
+import com.github.bhlangonijr.chesslib.PieceType;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.Square;
 import com.github.bhlangonijr.chesslib.move.Move;
@@ -68,8 +69,8 @@ public class MoveOrdering {
 	}
 
 	// Helper method for attack detection
-	private static boolean canPieceAttackSquare(final com.github.bhlangonijr.chesslib.PieceType pieceType,
-			final com.github.bhlangonijr.chesslib.Square from, final com.github.bhlangonijr.chesslib.Square to) {
+	private static boolean canPieceAttackSquare(final PieceType pieceType,
+			final Square from, final Square to) {
 		// Use the utility class method instead of duplicating code
 		return ChessUtils.canPieceAttackSquare(pieceType, from, to);
 	}
@@ -181,7 +182,7 @@ public class MoveOrdering {
 	}
 
 	// Helper method to convert file/rank to Square
-	private static com.github.bhlangonijr.chesslib.Square getSquareFromFileRank(final int file, final int rank) {
+	private static Square getSquareFromFileRank(final int file, final int rank) {
 		if (file < 0 || file > 7 || rank < 0 || rank > 7) {
 			return null;
 		}
@@ -190,7 +191,7 @@ public class MoveOrdering {
 			final var fileChar = (char) ('a' + file);
 			final var rankChar = (char) ('1' + rank);
 			final var squareName = "" + fileChar + rankChar;
-			return com.github.bhlangonijr.chesslib.Square.valueOf(squareName.toUpperCase());
+			return Square.valueOf(squareName.toUpperCase());
 		} catch (final IllegalArgumentException e) {
 			return null;
 		}
@@ -370,12 +371,12 @@ public class MoveOrdering {
 
 		// 5. PIECE DEVELOPMENT BONUSES - Strongly encourage early piece development
 		final var movingPiece = board.getPiece(move.getFrom());
-		if (movingPiece.getPieceType() != com.github.bhlangonijr.chesslib.PieceType.PAWN
-				&& movingPiece.getPieceType() != com.github.bhlangonijr.chesslib.PieceType.KING) {
+		if (movingPiece.getPieceType() != PieceType.PAWN
+				&& movingPiece.getPieceType() != PieceType.KING) {
 
 			// Large bonus for developing pieces from back rank
 			final var fromRank = move.getFrom().getRank().ordinal();
-			final var isWhite = movingPiece.getPieceSide() == com.github.bhlangonijr.chesslib.Side.WHITE;
+			final var isWhite = movingPiece.getPieceSide() == Side.WHITE;
 
 			// Check if piece is moving from its starting position
 			final var isFromStartingPosition = (isWhite ? fromRank == 0 : fromRank == 7);
@@ -450,10 +451,10 @@ public class MoveOrdering {
 		}
 
 		// 8. PAWN ADVANCEMENT MOVES - prioritize pushing pawns toward promotion
-		if (movingPiece.getPieceType() == com.github.bhlangonijr.chesslib.PieceType.PAWN) {
+		if (movingPiece.getPieceType() == PieceType.PAWN) {
 			final var fromRank = move.getFrom().getRank().ordinal();
 			final var toRank = move.getTo().getRank().ordinal();
-			final var isWhite = movingPiece.getPieceSide() == com.github.bhlangonijr.chesslib.Side.WHITE;
+			final var isWhite = movingPiece.getPieceSide() == Side.WHITE;
 
 			// Calculate advancement
 			final var advancement = isWhite ? (toRank - fromRank) : (fromRank - toRank);
@@ -664,7 +665,7 @@ public class MoveOrdering {
 
 	// Check if a pawn move would create a passed pawn
 	private static boolean wouldCreatePassedPawn(final Board board,
-			final com.github.bhlangonijr.chesslib.Square pawnSquare, final boolean isWhite) {
+			final Square pawnSquare, final boolean isWhite) {
 		final var file = pawnSquare.getFile().ordinal();
 		final var rank = pawnSquare.getRank().ordinal();
 		final var enemyPawn = isWhite ? Piece.BLACK_PAWN : Piece.WHITE_PAWN;
