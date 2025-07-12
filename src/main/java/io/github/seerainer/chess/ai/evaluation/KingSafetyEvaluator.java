@@ -1,7 +1,9 @@
 package io.github.seerainer.chess.ai.evaluation;
 
 import com.github.bhlangonijr.chesslib.Board;
+import com.github.bhlangonijr.chesslib.File;
 import com.github.bhlangonijr.chesslib.PieceType;
+import com.github.bhlangonijr.chesslib.Rank;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.Square;
 
@@ -92,8 +94,8 @@ public class KingSafetyEvaluator implements EvaluationComponent {
 			if (checkFile >= 0 && checkFile <= 7) {
 				final var checkRank = kingRank + direction;
 				if (checkRank >= 0 && checkRank <= 7) {
-					final var checkSquare = Square.encode(com.github.bhlangonijr.chesslib.Rank.allRanks[checkRank],
-							com.github.bhlangonijr.chesslib.File.allFiles[checkFile]);
+					final var checkSquare = Square.encode(Rank.allRanks[checkRank],
+						File.allFiles[checkFile]);
 					final var piece = board.getPiece(checkSquare);
 					if (piece.getPieceType() == PieceType.PAWN && piece.getPieceSide() == side) {
 						shieldBonus += PAWN_SHIELD_BONUS;
