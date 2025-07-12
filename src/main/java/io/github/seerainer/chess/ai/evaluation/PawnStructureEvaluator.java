@@ -19,7 +19,7 @@ public class PawnStructureEvaluator implements EvaluationComponent {
 	private static final int CONNECTED_PAWN_BONUS = 15;
 	private static final int CENTRAL_PAWN_BONUS = 10;
 
-	private static int evaluatePawnStructure(final com.github.bhlangonijr.chesslib.Board board, final Side side) {
+	private static int evaluatePawnStructure(final Board board, final Side side) {
 		var score = 0;
 		final var friendlyPawn = (side == Side.WHITE) ? Piece.WHITE_PAWN : Piece.BLACK_PAWN;
 		final var enemyPawn = (side == Side.WHITE) ? Piece.BLACK_PAWN : Piece.WHITE_PAWN;
@@ -80,8 +80,8 @@ public class PawnStructureEvaluator implements EvaluationComponent {
 				final var checkRank = rank + rankOffset;
 
 				if (checkFile >= 0 && checkFile <= 7 && checkRank >= 0 && checkRank <= 7) {
-					final var checkSquare = Square.encode(com.github.bhlangonijr.chesslib.Rank.allRanks[checkRank],
-							com.github.bhlangonijr.chesslib.File.allFiles[checkFile]);
+					final var checkSquare = Square.encode(Rank.allRanks[checkRank],
+							File.allFiles[checkFile]);
 					if (board.getPiece(checkSquare) == friendlyPawn) {
 						return true;
 					}
