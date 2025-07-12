@@ -57,7 +57,7 @@ public class ChessAI {
 			// Simplified complexity check - avoid expensive move evaluation
 			// Just check if there are captures available
 			final var captureCount = legalMoves.stream().mapToLong(
-					move -> (board.getPiece(move.getTo()) != com.github.bhlangonijr.chesslib.Piece.NONE ? 1 : 0)).sum();
+					move -> (board.getPiece(move.getTo()) != Piece.NONE ? 1 : 0)).sum();
 
 			return captureCount > 3;
 		} catch (final Exception e) {
@@ -294,7 +294,7 @@ public class ChessAI {
 
 				// Additional safety check: ensure piece exists at source square
 				final var piece = board.getPiece(move.getFrom());
-				if (piece == null || piece == com.github.bhlangonijr.chesslib.Piece.NONE) {
+				if (piece == null || piece == Piece.NONE) {
 					System.err.println("Warning: No piece at source square: " + move);
 					continue;
 				}
