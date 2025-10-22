@@ -5,7 +5,7 @@ A sophisticated chess application built in Java with an advanced AI engine, feat
 ## Features
 
 ### 🎮 Game Features
-- **Interactive Chess Board**: Full-featured chess board
+- **Interactive Chess Board**: Full-featured chess board with drag-and-drop piece movement
 - **Game Modes**: Human vs Human, Human vs AI, AI vs AI
 - **Opening Book**: Extensive opening repertoire for strategic play
 - **Move Validation**: Complete rule enforcement including castling, en passant, and promotion
@@ -105,7 +105,7 @@ The native executable will be created in `build/native/nativeCompile/`.
 
 Launch the application and you'll see the chess board with an intuitive interface:
 
-- **Mouse click** pieces to make moves
+- **Drag and drop** pieces to make moves
 - **Menu bar** for game options and settings
 
 ### Game Controls

@@ -9,78 +9,62 @@ import com.github.bhlangonijr.chesslib.Square;
  * calculations
  */
 public class EvaluationContext {
-	private final Board board;
-	private final Side evaluatingSide;
-	private final boolean isEndGame;
-	private final int totalMaterial;
-	private final Square whiteKingSquare;
-	private final Square blackKingSquare;
+    private final Board board;
+    private final Side evaluatingSide;
+    private final boolean isEndGame;
+    private final int totalMaterial;
+    private final Square whiteKingSquare;
+    private final Square blackKingSquare;
 
-	// Cached evaluation results
-	private Integer materialScore;
+    // Cached evaluation results
+    private Integer materialScore;
 
-	public EvaluationContext(final Board board, final Side evaluatingSide) {
-		this.board = board;
-		this.evaluatingSide = evaluatingSide;
-		this.totalMaterial = calculateTotalMaterial();
-		this.isEndGame = totalMaterial <= 2000;
-		this.whiteKingSquare = findKingSquare(Side.WHITE);
-		this.blackKingSquare = findKingSquare(Side.BLACK);
+    public EvaluationContext(final Board board, final Side evaluatingSide) {
+	this.board = board;
+	this.evaluatingSide = evaluatingSide;
+	this.totalMaterial = calculateTotalMaterial();
+	this.isEndGame = totalMaterial <= 2000;
+	this.whiteKingSquare = findKingSquare(Side.WHITE);
+	this.blackKingSquare = findKingSquare(Side.BLACK);
+    }
+
+    private int calculateTotalMaterial() {
+	return MaterialEvaluator.getTotalMaterial(board);
+    }
+
+    private Square findKingSquare(final Side side) {
+	return KingSafetyEvaluator.findKing(board, side);
+    }
+
+    public Board getBoard() {
+	return board;
+    }
+
+    public Side getEvaluatingSide() {
+	return evaluatingSide;
+    }
+
+    // Cached score getters with lazy initialization
+    public int getMaterialScore() {
+	if (materialScore == null) {
+	    materialScore = MaterialEvaluator.evaluateMaterial(board);
 	}
+	return materialScore;
+    }
 
-	private int calculateTotalMaterial() {
-		return MaterialEvaluator.getTotalMaterial(board);
-	}
+    public int getTotalMaterial() {
+	return totalMaterial;
+    }
 
-	private Square findKingSquare(final Side side) {
-		return KingSafetyEvaluator.findKing(board, side);
-	}
+    public boolean isEndGame() {
+	return isEndGame;
+    }
 
-	public Square getBlackKingSquare() {
-		return blackKingSquare;
-	}
+    public Square getWhiteKingSquare() {
+	return whiteKingSquare;
+    }
 
-	public Board getBoard() {
-		return board;
-	}
-
-	public Side getEvaluatingSide() {
-		return evaluatingSide;
-	}
-
-	// Cached score getters with lazy initialization
-	public int getMaterialScore() {
-		if (materialScore == null) {
-			materialScore = MaterialEvaluator.evaluateMaterial(board);
-		}
-		return materialScore;
-	}
-
-	public int getTotalMaterial() {
-		return totalMaterial;
-	}
-
-	public Square getWhiteKingSquare() {
-		return whiteKingSquare;
-	}
-
-	public boolean isEndGame() {
-		return isEndGame;
-	}
-
-	public void setKingSafetyScore(final int score) {
-	}
-
-	public void setMaterialScore(final int score) {
-		this.materialScore = score;
-	}
-
-	public void setPawnStructureScore(final int score) {
-	}
-
-	public void setPieceActivityScore(final int score) {
-	}
-
-	public void setPositionalScore(final int score) {
-	}
+    public Square getBlackKingSquare() {
+	return blackKingSquare;
+    }
 }

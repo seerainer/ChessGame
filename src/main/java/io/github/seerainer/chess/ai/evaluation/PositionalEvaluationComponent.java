@@ -10,7 +10,7 @@ import com.github.bhlangonijr.chesslib.Square;
  */
 public class PositionalEvaluationComponent implements EvaluationComponent {
 
-	//@formatter:off
+    //@formatter:off
     // MIDDLEGAME Piece-Square Tables
     private static final int[][] PAWN_MG_TABLE = {
         {  0,  0,  0,  0,  0,  0,  0,  0},
@@ -145,101 +145,101 @@ public class PositionalEvaluationComponent implements EvaluationComponent {
     };
     //@formatter:on
 
-	/**
-	 * Calculate game phase (0 = endgame, 256 = opening)
-	 */
-	private static int calculateGamePhase(final EvaluationContext context) {
-		var phase = 0;
-		final var board = context.getBoard();
+    /**
+     * Calculate game phase (0 = endgame, 256 = opening)
+     */
+    private static int calculateGamePhase(final EvaluationContext context) {
+	var phase = 0;
+	final var board = context.getBoard();
 
-		for (final var square : Square.values()) {
-			if (square == Square.NONE) {
-				continue;
-			}
+	for (final var square : Square.values()) {
+	    if (square == Square.NONE) {
+		continue;
+	    }
 
-			final var piece = board.getPiece(square);
-			if (piece == Piece.NONE) {
-				continue;
-			}
+	    final var piece = board.getPiece(square);
+	    if (piece == Piece.NONE) {
+		continue;
+	    }
 
-			// Phase values: Queen=4, Rook=2, Bishop/Knight=1, Pawn/King=0
-			switch (piece.getPieceType()) {
-			case QUEEN -> phase += 4;
-			case ROOK -> phase += 2;
-			case BISHOP, KNIGHT -> phase += 1;
-			default -> {
-				// Pawns and Kings do not contribute to phase
-			}
-			}
-		}
-
-		// Scale to 0-256 range (24 is roughly the total material phase value)
-		return Math.min(phase * 256 / 24, 256);
+	    // Phase values: Queen=4, Rook=2, Bishop/Knight=1, Pawn/King=0
+	    switch (piece.getPieceType()) {
+	    case QUEEN -> phase += 4;
+	    case ROOK -> phase += 2;
+	    case BISHOP, KNIGHT -> phase += 1;
+	    default -> {
+		// Pawns and Kings do not contribute to phase
+	    }
+	    }
 	}
 
-	/**
-	 * Get enhanced positional value with phase interpolation
-	 */
-	private static int getPositionalValue(final Piece piece, final Square square, final EvaluationContext context) {
-		final var file = square.getFile().ordinal();
-		final var rank = square.getRank().ordinal();
-		final var isWhite = piece.getPieceSide() == Side.WHITE;
-		final var tableRank = isWhite ? 7 - rank : rank;
-		final var phase = calculateGamePhase(context);
+	// Scale to 0-256 range (24 is roughly the total material phase value)
+	return Math.min(phase * 256 / 24, 256);
+    }
 
-		final var mgValue = switch (piece.getPieceType()) {
-		case PAWN -> PAWN_MG_TABLE[tableRank][file];
-		case KNIGHT -> KNIGHT_MG_TABLE[tableRank][file];
-		case BISHOP -> BISHOP_MG_TABLE[tableRank][file];
-		case ROOK -> ROOK_MG_TABLE[tableRank][file];
-		case QUEEN -> QUEEN_MG_TABLE[tableRank][file];
-		case KING -> KING_MG_TABLE[tableRank][file];
-		default -> 0;
-		};
+    /**
+     * Get enhanced positional value with phase interpolation
+     */
+    private static int getPositionalValue(final Piece piece, final Square square, final EvaluationContext context) {
+	final var file = square.getFile().ordinal();
+	final var rank = square.getRank().ordinal();
+	final var isWhite = piece.getPieceSide() == Side.WHITE;
+	final var tableRank = isWhite ? 7 - rank : rank;
+	final var phase = calculateGamePhase(context);
 
-		final var egValue = switch (piece.getPieceType()) {
-		case PAWN -> PAWN_EG_TABLE[tableRank][file];
-		case KNIGHT -> KNIGHT_EG_TABLE[tableRank][file];
-		case BISHOP -> BISHOP_EG_TABLE[tableRank][file];
-		case ROOK -> ROOK_EG_TABLE[tableRank][file];
-		case QUEEN -> QUEEN_EG_TABLE[tableRank][file];
-		case KING -> KING_EG_TABLE[tableRank][file];
-		default -> 0;
-		};
+	final var mgValue = switch (piece.getPieceType()) {
+	case PAWN -> PAWN_MG_TABLE[tableRank][file];
+	case KNIGHT -> KNIGHT_MG_TABLE[tableRank][file];
+	case BISHOP -> BISHOP_MG_TABLE[tableRank][file];
+	case ROOK -> ROOK_MG_TABLE[tableRank][file];
+	case QUEEN -> QUEEN_MG_TABLE[tableRank][file];
+	case KING -> KING_MG_TABLE[tableRank][file];
+	default -> 0;
+	};
 
-		final var interpolatedValue = interpolate(mgValue, egValue, phase);
-		return isWhite ? interpolatedValue : -interpolatedValue;
+	final var egValue = switch (piece.getPieceType()) {
+	case PAWN -> PAWN_EG_TABLE[tableRank][file];
+	case KNIGHT -> KNIGHT_EG_TABLE[tableRank][file];
+	case BISHOP -> BISHOP_EG_TABLE[tableRank][file];
+	case ROOK -> ROOK_EG_TABLE[tableRank][file];
+	case QUEEN -> QUEEN_EG_TABLE[tableRank][file];
+	case KING -> KING_EG_TABLE[tableRank][file];
+	default -> 0;
+	};
+
+	final var interpolatedValue = interpolate(mgValue, egValue, phase);
+	return isWhite ? interpolatedValue : -interpolatedValue;
+    }
+
+    /**
+     * Interpolate between middlegame and endgame values based on game phase
+     */
+    private static int interpolate(final int mg, final int eg, final int phase) {
+	return ((mg * phase) + (eg * (256 - phase))) / 256;
+    }
+
+    @Override
+    public int evaluate(final EvaluationContext context) {
+	var positionalScore = 0;
+
+	for (final var square : Square.values()) {
+	    if (square == Square.NONE) {
+		continue;
+	    }
+
+	    final var piece = context.getBoard().getPiece(square);
+	    if (piece == Piece.NONE) {
+		continue;
+	    }
+
+	    positionalScore += getPositionalValue(piece, square, context);
 	}
 
-	/**
-	 * Interpolate between middlegame and endgame values based on game phase
-	 */
-	private static int interpolate(final int mg, final int eg, final int phase) {
-		return ((mg * phase) + (eg * (256 - phase))) / 256;
-	}
+	return context.getEvaluatingSide() == Side.WHITE ? positionalScore : -positionalScore;
+    }
 
-	@Override
-	public int evaluate(final EvaluationContext context) {
-		var positionalScore = 0;
-
-		for (final var square : Square.values()) {
-			if (square == Square.NONE) {
-				continue;
-			}
-
-			final var piece = context.getBoard().getPiece(square);
-			if (piece == Piece.NONE) {
-				continue;
-			}
-
-			positionalScore += getPositionalValue(piece, square, context);
-		}
-
-		return context.getEvaluatingSide() == Side.WHITE ? positionalScore : -positionalScore;
-	}
-
-	@Override
-	public String getComponentName() {
-		return "Positional";
-	}
+    @Override
+    public String getComponentName() {
+	return "Positional";
+    }
 }

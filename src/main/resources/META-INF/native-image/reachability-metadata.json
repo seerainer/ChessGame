@@ -1,47 +1,8 @@
 {
   "reflection": [
     {
-      "type": "org.eclipse.swt.widgets.Display"
-    },
-    {
-      "type": "sun.security.provider.DRBG",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.security.SecureRandomParameters"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "sun.security.provider.SHA",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "sun.security.provider.SHA2$SHA256",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
-    }
-  ],
-  "resources": [
-    {
-      "glob": "org/eclipse/swt/internal/Library.class"
-    }
-  ],
-  "bundles": [],
-  "jni": [
-    {
       "type": "io.github.seerainer.chess.Main",
+      "jniAccessible": true,
       "methods": [
         {
           "name": "main",
@@ -53,6 +14,7 @@
     },
     {
       "type": "java.lang.Boolean",
+      "jniAccessible": true,
       "methods": [
         {
           "name": "getBoolean",
@@ -63,7 +25,11 @@
       ]
     },
     {
+      "type": "java.lang.String[]"
+    },
+    {
       "type": "java.lang.Throwable",
+      "jniAccessible": true,
       "methods": [
         {
           "name": "addSuppressed",
@@ -75,6 +41,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.gdip.GdiplusStartupInput",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "DebugEventCallback"
@@ -92,6 +59,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.ACTCTX",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "cbSize"
@@ -124,6 +92,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.INITCOMMONCONTROLSEX",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "dwICC"
@@ -135,6 +104,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.LOGFONT",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "lfCharSet"
@@ -182,6 +152,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.MENUBARINFO",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "bottom"
@@ -214,6 +185,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.MENUINFO",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "cbSize"
@@ -240,6 +212,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.MENUITEMINFO",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "cbSize"
@@ -281,6 +254,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.MINMAXINFO",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "ptMaxPosition_x"
@@ -316,6 +290,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.MONITORINFO",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "cbSize"
@@ -351,6 +326,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.MSG",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "hwnd"
@@ -377,6 +353,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.NONCLIENTMETRICS",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "cbSize"
@@ -427,6 +404,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.PAINTSTRUCT",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "bottom"
@@ -459,6 +437,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.POINT",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "x"
@@ -470,6 +449,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.RECT",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "bottom"
@@ -487,6 +467,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.STARTUPINFO",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "cb"
@@ -546,6 +527,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.WINDOWPLACEMENT",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "bottom"
@@ -584,6 +566,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.WINDOWPOS",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "cx"
@@ -610,6 +593,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.WNDCLASS",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "cbClsExtra"
@@ -645,6 +629,7 @@
     },
     {
       "type": "org.eclipse.swt.internal.win32.version.OSVERSIONINFOEX",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "dwBuildNumber"
@@ -683,6 +668,7 @@
     },
     {
       "type": "org.eclipse.swt.widgets.Display",
+      "jniAccessible": true,
       "methods": [
         {
           "name": "foregroundIdleProc",
@@ -722,6 +708,7 @@
     },
     {
       "type": "sun.launcher.LauncherHelper",
+      "jniAccessible": true,
       "fields": [
         {
           "name": "isStaticMain"
@@ -736,6 +723,43 @@
           "parameterTypes": []
         }
       ]
+    },
+    {
+      "type": "sun.security.provider.DRBG",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.security.SecureRandomParameters"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "sun.security.provider.SHA",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "sun.security.provider.SHA2$SHA256",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "sun.text.resources.cldr.FormatData"
+    }
+  ],
+  "resources": [
+    {
+      "glob": "org/eclipse/swt/internal/Library.class"
     }
   ]
 }

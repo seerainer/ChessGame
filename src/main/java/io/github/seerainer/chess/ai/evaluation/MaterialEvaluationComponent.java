@@ -5,19 +5,19 @@ package io.github.seerainer.chess.ai.evaluation;
  */
 public class MaterialEvaluationComponent implements EvaluationComponent {
 
-	@Override
-	public int evaluate(final EvaluationContext context) {
-		return MaterialEvaluator.evaluateMaterial(context.getBoard());
-	}
+    @Override
+    public int evaluate(final EvaluationContext context) {
+	return MaterialEvaluator.evaluateMaterial(context.getBoard());
+    }
 
-	@Override
-	public String getComponentName() {
-		return "Material";
-	}
+    @Override
+    public String getComponentName() {
+	return "Material";
+    }
 
-	@Override
-	public double getWeight(final EvaluationContext context) {
-		// Material is always the most important factor
-		return 1.0;
-	}
+    @Override
+    public double getWeight(final EvaluationContext context) {
+	// Material is always the most important factor
+	return 1.0;
+    }
 }

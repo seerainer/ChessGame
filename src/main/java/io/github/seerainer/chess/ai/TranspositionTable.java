@@ -7,414 +7,324 @@ import com.github.bhlangonijr.chesslib.move.Move;
  * management
  */
 public class TranspositionTable {
-	/**
-	 * **NEW: Statistics data class**
-	 */
-	public static class TableStats {
-		public final int totalEntries;
-		public final int exactNodes;
-		public final int lowerBoundNodes;
-		public final int upperBoundNodes;
-		public final double averageDepth;
-		public final int entriesWithMoves;
-		public final double loadFactor;
+    // **CONSTANTS: Extracted magic numbers**
+    private static final int DEFAULT_SIZE = 1_000_000;
+    private static final int MAX_AGE = 64;
+    private static final int AGE_INCREMENT = 1;
+    // **NEW: Search generation tracking for better aging**
+    private static final int MAX_SEARCH_GENERATION = 256;
+    private final TTEntry[] table;
+    private final int size;
+    private int currentAge;
+    private int storedEntries;
+    // **NEW: Track search generations separately from age**
+    private int searchGeneration;
+    // **NEW: Statistics for replacement behavior**
+    private long totalProbes;
+    private long hitCount;
+    private long replacementCount;
 
-		public TableStats(final int totalEntries, final int exactNodes, final int lowerBoundNodes,
-				final int upperBoundNodes, final double averageDepth, final int entriesWithMoves,
-				final double loadFactor) {
-			this.totalEntries = totalEntries;
-			this.exactNodes = exactNodes;
-			this.lowerBoundNodes = lowerBoundNodes;
-			this.upperBoundNodes = upperBoundNodes;
-			this.averageDepth = averageDepth;
-			this.entriesWithMoves = entriesWithMoves;
-			this.loadFactor = loadFactor;
-		}
+    public TranspositionTable() {
+	this(DEFAULT_SIZE);
+    }
 
-		@Override
-		public String toString() {
-			return "TT Stats: %d entries (%.1f%% full), %.1f avg depth, %d exact, %d lower, %d upper, %d with moves"
-					.formatted(totalEntries, loadFactor * 100, averageDepth, exactNodes, lowerBoundNodes,
-							upperBoundNodes, entriesWithMoves);
-		}
+    public TranspositionTable(final int size) {
+	this.size = size;
+	this.table = new TTEntry[size];
+	this.currentAge = 0;
+	this.storedEntries = 0;
+    }
+
+    /**
+     * **ENHANCED: Clear with generation-based aging**
+     */
+    public void clear() {
+	// **NEW: Increment search generation for better aging**
+	searchGeneration = (searchGeneration + 1) % MAX_SEARCH_GENERATION;
+
+	// Traditional age increment
+	currentAge = Math.min(currentAge + AGE_INCREMENT, MAX_AGE);
+
+	// Only do full clear if age has wrapped around or generation reset
+	if (((currentAge < MAX_AGE) && (searchGeneration != 0))) {
+	    return;
+	}
+	for (var i = 0; i < size; i++) {
+	    table[i] = null;
+	}
+	currentAge = 0;
+	storedEntries = 0;
+	searchGeneration = 0;
+    }
+
+    /**
+     * **IMPROVED: Probe with LRU tracking and statistics**
+     */
+    public TTEntry get(final long zobristKey) {
+	totalProbes++;
+	final var index = getIndex(zobristKey);
+	final var entry = table[index];
+
+	// Verify zobrist key matches to avoid hash collisions
+	if (((entry == null) || (entry.zobristKey != zobristKey))) {
+	    return null;
+	}
+	hitCount++;
+	entry.markAccessed(currentAge); // **NEW: Update LRU information
+	return entry;
+    }
+
+    /**
+     * **NEW: Get hit rate for performance monitoring**
+     */
+    public double getHitRate() {
+	return totalProbes > 0 ? (double) hitCount / totalProbes : 0.0;
+    }
+
+    /**
+     * **IMPROVED: Hash function with better distribution**
+     */
+    private int getIndex(final long zobristKey) {
+	// Use upper and lower 32 bits for better distribution
+	final var hash = (int) (zobristKey ^ (zobristKey >>> 32));
+	return Math.abs(hash) % size;
+    }
+
+    /**
+     * **NEW: Get load factor for performance monitoring**
+     */
+    public double getLoadFactor() {
+	return (double) storedEntries / size;
+    }
+
+    /**
+     * **NEW: Get replacement statistics**
+     */
+    public String getReplacementStats() {
+	return "Probes: %d, Hits: %d (%.1f%%), Replacements: %d, Load: %.1f%%".formatted(totalProbes, hitCount,
+		getHitRate() * 100, replacementCount, getLoadFactor() * 100);
+    }
+
+    /**
+     * **NEW: Start new search - increment generation for better cache management**
+     */
+    public void newSearch() {
+	searchGeneration = (searchGeneration + 1) % MAX_SEARCH_GENERATION;
+	currentAge++;
+
+	// **NEW: Periodic cleanup of very old entries**
+	if (searchGeneration % 10 == 0) {
+	    performPeriodicCleanup();
+	}
+    }
+
+    /**
+     * **NEW: Periodic cleanup of very old entries**
+     */
+    private void performPeriodicCleanup() {
+	var cleanedEntries = 0;
+	final var cleanupThreshold = searchGeneration - 20; // Clean entries older than 20 generations
+
+	for (var i = 0; i < size && cleanedEntries < size / 10; i++) { // Limit cleanup to 10% of table
+	    final var entry = table[i];
+	    if (entry != null && entry.searchGeneration < cleanupThreshold) {
+		table[i] = null;
+		storedEntries--;
+		cleanedEntries++;
+	    }
+	}
+    }
+
+    /**
+     * **ENHANCED: Check if replacement should occur with sophisticated logic**
+     */
+    private boolean shouldReplace(final TTEntry existing, final int newDepth, final int newNodeType) {
+	// Always replace if slot is empty
+	// Always replace if new search is significantly deeper
+	if ((existing == null) || (newDepth > existing.depth + 2)) {
+	    return true;
 	}
 
-	// Transposition table entry class with enhanced data
-	public static class TTEntry {
-		public final long zobristKey;
-		public final int score;
-		public final int depth;
-		public final Move bestMove;
-		public final int nodeType; // 0 = exact, 1 = lower bound, 2 = upper bound
-		public final int age;
-		// **NEW: Search generation for more precise aging**
-		public final int searchGeneration;
-		// **NEW: Access count for frequency-based replacement**
-		private int accessCount;
-		// **NEW: Last access age for LRU-style replacement**
-		private int lastAccessAge;
-
-		public TTEntry(final long zobristKey, final int score, final int depth, final Move bestMove, final int nodeType,
-				final int age, final int searchGeneration) {
-			this.zobristKey = zobristKey;
-			this.score = score;
-			this.depth = depth;
-			this.bestMove = bestMove;
-			this.nodeType = nodeType;
-			this.age = age;
-			this.searchGeneration = searchGeneration;
-			this.accessCount = 1;
-			this.lastAccessAge = age;
-		}
-
-		/**
-		 * **ENHANCED: More sophisticated replacement priority calculation** Considers
-		 * multiple factors for optimal cache behavior
-		 */
-		public int getReplacementPriority(final int currentAge, final int currentGeneration) {
-			var priority = 0;
-
-			// **NEW: Search generation factor (most important)**
-			final var generationDiff = currentGeneration - this.searchGeneration;
-			if (generationDiff > 0) {
-				priority += generationDiff * 50; // High penalty for old generations
-			}
-
-			// Age factor within current generation
-			final var ageDiff = Math.min(currentAge - this.age, MAX_AGE);
-			priority += ageDiff * 3;
-
-			// **NEW: Depth factor with exponential scaling**
-			final var depthPenalty = Math.max(0, 25 - this.depth);
-			priority += depthPenalty * depthPenalty / 10; // Quadratic penalty for shallow searches
-
-			// **NEW: Node type factor with refined weights**
-			switch (this.nodeType) {
-			case 0 -> priority += 0; // Exact nodes are most valuable
-			case 1 -> priority += 8; // Lower bound nodes
-			case 2 -> priority += 12; // Upper bound nodes least valuable
-			default -> priority += 15; // Invalid node types
-			}
-
-			// **NEW: Access frequency factor (LFU)**
-			if (this.accessCount <= 1) {
-				priority += 20; // Rarely accessed entries
-			} else if (this.accessCount <= 3) {
-				priority += 10; // Moderately accessed
-			}
-			// Frequently accessed entries get no penalty
-
-			// **NEW: Last access age factor (LRU)**
-			final var lastAccessDiff = currentAge - this.lastAccessAge;
-			priority += Math.min(lastAccessDiff * 2, 30); // Cap at 30
-
-			// **NEW: Special bonuses for valuable entries**
-			if (this.bestMove != null) {
-				priority -= 15; // Entries with moves are more valuable
-			}
-			if (this.depth >= 10) {
-				priority -= 10; // Deep searches are more valuable
-			}
-
-			return Math.max(priority, 0); // Ensure non-negative
-		}
-
-		/**
-		 * **NEW: Calculate entry value score for debugging/tuning**
-		 */
-		public int getValueScore() {
-			var value = 0;
-			value += this.depth * 10; // Depth is very valuable
-			if (this.nodeType == 0) {
-				value += 50; // Exact nodes
-			}
-			if (this.bestMove != null) {
-				value += 30; // Moves are valuable
-			}
-			value += Math.min(this.accessCount * 5, 25); // Frequency bonus
-			return value;
-		}
-
-		/**
-		 * **NEW: Check if entry is from current search generation**
-		 */
-		public boolean isCurrentGeneration(final int currentGeneration) {
-			return this.searchGeneration == currentGeneration;
-		}
-
-		/**
-		 * **NEW: Mark this entry as accessed for LRU tracking**
-		 */
-		public void markAccessed(final int currentAge) {
-			this.accessCount = Math.min(this.accessCount + 1, 255); // Cap to prevent overflow
-			this.lastAccessAge = currentAge;
-		}
+	// Always keep if existing is much deeper
+	if (existing.depth > newDepth + 4) {
+	    return false;
 	}
 
-	// **CONSTANTS: Extracted magic numbers**
-	private static final int DEFAULT_SIZE = 1_000_000;
-	private static final int MAX_AGE = 64;
-	private static final int AGE_INCREMENT = 1;
-	// **NEW: Search generation tracking for better aging**
-	private static final int MAX_SEARCH_GENERATION = 256;
+	// **NEW: Enhanced replacement decision based on multiple factors**
+	final var existingPriority = existing.getReplacementPriority(currentAge, searchGeneration);
 
-	private final TTEntry[] table;
-	private final int size;
-	private int currentAge;
-	private int storedEntries;
-	// **NEW: Track search generations separately from age**
-	private int searchGeneration;
-	// **NEW: Statistics for replacement behavior**
-	private long totalProbes;
-	private long hitCount;
-	private long replacementCount;
-
-	public TranspositionTable() {
-		this(DEFAULT_SIZE);
+	// **NEW: Dynamic threshold based on table load factor**
+	var threshold = 30; // Base threshold
+	final var loadFactor = getLoadFactor();
+	if (loadFactor > 0.8) {
+	    threshold -= 10; // More aggressive replacement when table is full
+	} else if (loadFactor < 0.5) {
+	    threshold += 10; // More conservative when table has space
 	}
 
-	public TranspositionTable(final int size) {
-		this.size = size;
-		this.table = new TTEntry[size];
-		this.currentAge = 0;
-		this.storedEntries = 0;
+	// **NEW: Bonus for exact nodes and entries with moves**
+	if (newNodeType == 0) { // Exact node
+	    threshold -= 5;
+	}
+	if (existing.bestMove != null && newNodeType != 0) {
+	    threshold += 8; // Harder to replace entries with moves
 	}
 
-	/**
-	 * **ENHANCED: Clear with generation-based aging**
-	 */
-	public void clear() {
-		// **NEW: Increment search generation for better aging**
-		searchGeneration = (searchGeneration + 1) % MAX_SEARCH_GENERATION;
-
-		// Traditional age increment
-		currentAge = Math.min(currentAge + AGE_INCREMENT, MAX_AGE);
-
-		// Only do full clear if age has wrapped around or generation reset
-		if (((currentAge < MAX_AGE) && (searchGeneration != 0))) {
-			return;
-		}
-		for (var i = 0; i < size; i++) {
-			table[i] = null;
-		}
-		currentAge = 0;
-		storedEntries = 0;
-		searchGeneration = 0;
+	// **NEW: Generation-based replacement preference**
+	if (existing.searchGeneration < searchGeneration - 5) {
+	    threshold -= 15; // Easier to replace very old entries
 	}
 
-	/**
-	 * **IMPROVED: Probe with LRU tracking and statistics**
-	 */
-	public TTEntry get(final long zobristKey) {
-		totalProbes++;
-		final var index = getIndex(zobristKey);
-		final var entry = table[index];
+	return existingPriority > threshold;
+    }
 
-		// Verify zobrist key matches to avoid hash collisions
-		if (((entry == null) || (entry.zobristKey != zobristKey))) {
-			return null;
-		}
-		hitCount++;
-		entry.markAccessed(currentAge); // **NEW: Update LRU information
-		return entry;
+    /**
+     * **NEW: Get table size for monitoring**
+     */
+    public int size() {
+	return storedEntries;
+    }
+
+    /**
+     * **ENHANCED: Store with comprehensive replacement strategy and statistics**
+     */
+    public void store(final long zobristKey, final int score, final int depth, final Move bestMove,
+	    final int nodeType) {
+	final var index = getIndex(zobristKey);
+	final var existing = table[index];
+
+	// Check if we should replace the existing entry
+	if (!shouldReplace(existing, depth, nodeType)) {
+	    return;
+	}
+	// Count replacements for statistics
+	if (existing != null) {
+	    replacementCount++;
+	} else {
+	    storedEntries++;
+	}
+	// **NEW: Use current search generation for new entries**
+	table[index] = new TTEntry(zobristKey, score, depth, bestMove, nodeType, currentAge, searchGeneration);
+    }
+
+    /**
+     * **NEW: Statistics data class**
+     */
+    public static class TableStats {
+	public final int totalEntries;
+	public final int exactNodes;
+	public final int lowerBoundNodes;
+	public final int upperBoundNodes;
+	public final double averageDepth;
+	public final int entriesWithMoves;
+	public final double loadFactor;
+
+	public TableStats(final int totalEntries, final int exactNodes, final int lowerBoundNodes,
+		final int upperBoundNodes, final double averageDepth, final int entriesWithMoves,
+		final double loadFactor) {
+	    this.totalEntries = totalEntries;
+	    this.exactNodes = exactNodes;
+	    this.lowerBoundNodes = lowerBoundNodes;
+	    this.upperBoundNodes = upperBoundNodes;
+	    this.averageDepth = averageDepth;
+	    this.entriesWithMoves = entriesWithMoves;
+	    this.loadFactor = loadFactor;
 	}
 
-	/**
-	 * **NEW: Get current age for replacement decisions**
-	 */
-	public int getCurrentAge() {
-		return currentAge;
+	@Override
+	public String toString() {
+	    return "TT Stats: %d entries (%.1f%% full), %.1f avg depth, %d exact, %d lower, %d upper, %d with moves"
+		    .formatted(totalEntries, loadFactor * 100, averageDepth, exactNodes, lowerBoundNodes,
+			    upperBoundNodes, entriesWithMoves);
 	}
+    }
 
-	/**
-	 * **NEW: Get hit rate for performance monitoring**
-	 */
-	public double getHitRate() {
-		return totalProbes > 0 ? (double) hitCount / totalProbes : 0.0;
-	}
+    // Transposition table entry class with enhanced data
+    public static class TTEntry {
+	public final long zobristKey;
+	public final int score;
+	public final int depth;
+	public final Move bestMove;
+	public final int nodeType; // 0 = exact, 1 = lower bound, 2 = upper bound
+	public final int age;
+	// **NEW: Search generation for more precise aging**
+	public final int searchGeneration;
+	// **NEW: Access count for frequency-based replacement**
+	private int accessCount;
+	// **NEW: Last access age for LRU-style replacement**
+	private int lastAccessAge;
 
-	/**
-	 * **IMPROVED: Hash function with better distribution**
-	 */
-	private int getIndex(final long zobristKey) {
-		// Use upper and lower 32 bits for better distribution
-		final var hash = (int) (zobristKey ^ (zobristKey >>> 32));
-		return Math.abs(hash) % size;
-	}
-
-	/**
-	 * **NEW: Get load factor for performance monitoring**
-	 */
-	public double getLoadFactor() {
-		return (double) storedEntries / size;
-	}
-
-	/**
-	 * **NEW: Get replacement statistics**
-	 */
-	public String getReplacementStats() {
-		return "Probes: %d, Hits: %d (%.1f%%), Replacements: %d, Load: %.1f%%".formatted(totalProbes, hitCount,
-				getHitRate() * 100, replacementCount, getLoadFactor() * 100);
-	}
-
-	/**
-	 * **NEW: Get table statistics for monitoring**
-	 */
-	public TableStats getStats() {
-		var exactNodes = 0;
-		var lowerBoundNodes = 0;
-		var upperBoundNodes = 0;
-		var totalDepth = 0;
-		var entriesWithMoves = 0;
-
-		for (final var entry : table) {
-			if (entry != null) {
-				switch (entry.nodeType) {
-				case 0 -> exactNodes++;
-				case 1 -> lowerBoundNodes++;
-				case 2 -> upperBoundNodes++;
-				default -> throw new IllegalArgumentException("Unexpected value: " + entry.nodeType);
-				}
-				totalDepth += entry.depth;
-				if (entry.bestMove != null) {
-					entriesWithMoves++;
-				}
-			}
-		}
-
-		return new TableStats(storedEntries, exactNodes, lowerBoundNodes, upperBoundNodes,
-				storedEntries > 0 ? (double) totalDepth / storedEntries : 0.0, entriesWithMoves, getLoadFactor());
+	public TTEntry(final long zobristKey, final int score, final int depth, final Move bestMove, final int nodeType,
+		final int age, final int searchGeneration) {
+	    this.zobristKey = zobristKey;
+	    this.score = score;
+	    this.depth = depth;
+	    this.bestMove = bestMove;
+	    this.nodeType = nodeType;
+	    this.age = age;
+	    this.searchGeneration = searchGeneration;
+	    this.accessCount = 1;
+	    this.lastAccessAge = age;
 	}
 
 	/**
-	 * **NEW: Start new search - increment generation for better cache management**
+	 * **ENHANCED: More sophisticated replacement priority calculation** Considers
+	 * multiple factors for optimal cache behavior
 	 */
-	public void newSearch() {
-		searchGeneration = (searchGeneration + 1) % MAX_SEARCH_GENERATION;
-		currentAge++;
+	public int getReplacementPriority(final int currentAge, final int currentGeneration) {
+	    var priority = 0;
 
-		// **NEW: Periodic cleanup of very old entries**
-		if (searchGeneration % 10 == 0) {
-			performPeriodicCleanup();
-		}
+	    // **NEW: Search generation factor (most important)**
+	    final var generationDiff = currentGeneration - this.searchGeneration;
+	    if (generationDiff > 0) {
+		priority += generationDiff * 50; // High penalty for old generations
+	    }
+
+	    // Age factor within current generation
+	    final var ageDiff = Math.min(currentAge - this.age, MAX_AGE);
+	    priority += ageDiff * 3;
+
+	    // **NEW: Depth factor with exponential scaling**
+	    final var depthPenalty = Math.max(0, 25 - this.depth);
+	    priority += depthPenalty * depthPenalty / 10; // Quadratic penalty for shallow searches
+
+	    // **NEW: Node type factor with refined weights**
+	    switch (this.nodeType) {
+	    case 0 -> priority += 0; // Exact nodes are most valuable
+	    case 1 -> priority += 8; // Lower bound nodes
+	    case 2 -> priority += 12; // Upper bound nodes least valuable
+	    default -> priority += 15; // Invalid node types
+	    }
+
+	    // **NEW: Access frequency factor (LFU)**
+	    if (this.accessCount <= 1) {
+		priority += 20; // Rarely accessed entries
+	    } else if (this.accessCount <= 3) {
+		priority += 10; // Moderately accessed
+	    }
+	    // Frequently accessed entries get no penalty
+
+	    // **NEW: Last access age factor (LRU)**
+	    final var lastAccessDiff = currentAge - this.lastAccessAge;
+	    priority += Math.min(lastAccessDiff * 2, 30); // Cap at 30
+
+	    // **NEW: Special bonuses for valuable entries**
+	    if (this.bestMove != null) {
+		priority -= 15; // Entries with moves are more valuable
+	    }
+	    if (this.depth >= 10) {
+		priority -= 10; // Deep searches are more valuable
+	    }
+
+	    return Math.max(priority, 0); // Ensure non-negative
 	}
 
 	/**
-	 * **NEW: Advanced table maintenance - removes stale entries**
+	 * **NEW: Mark this entry as accessed for LRU tracking**
 	 */
-	public void performMaintenance() {
-		var removedEntries = 0;
-		final var maintenanceThreshold = searchGeneration - 50; // Very old entries
-
-		// Remove entries that are extremely old
-		for (var i = 0; i < size && removedEntries < size / 20; i++) { // Limit to 5% of table
-			final var entry = table[i];
-			final var condition = entry != null && (entry.searchGeneration < maintenanceThreshold
-					|| (entry.depth <= 2 && entry.accessCount <= 1 && currentAge - entry.lastAccessAge > 20));
-			// Remove if very old or has very low value
-			if (condition) {
-				table[i] = null;
-				storedEntries--;
-				removedEntries++;
-			}
-		}
+	public void markAccessed(final int currentAge) {
+	    this.accessCount = Math.min(this.accessCount + 1, 255); // Cap to prevent overflow
+	    this.lastAccessAge = currentAge;
 	}
-
-	/**
-	 * **NEW: Periodic cleanup of very old entries**
-	 */
-	private void performPeriodicCleanup() {
-		var cleanedEntries = 0;
-		final var cleanupThreshold = searchGeneration - 20; // Clean entries older than 20 generations
-
-		for (var i = 0; i < size && cleanedEntries < size / 10; i++) { // Limit cleanup to 10% of table
-			final var entry = table[i];
-			if (entry != null && entry.searchGeneration < cleanupThreshold) {
-				table[i] = null;
-				storedEntries--;
-				cleanedEntries++;
-			}
-		}
-	}
-
-	/**
-	 * **NEW: Reset statistics (useful for benchmarking)**
-	 */
-	public void resetStatistics() {
-		totalProbes = 0;
-		hitCount = 0;
-		replacementCount = 0;
-	}
-
-	/**
-	 * **ENHANCED: Check if replacement should occur with sophisticated logic**
-	 */
-	private boolean shouldReplace(final TTEntry existing, final int newDepth, final int newNodeType) {
-		// Always replace if slot is empty
-		// Always replace if new search is significantly deeper
-		if ((existing == null) || (newDepth > existing.depth + 2)) {
-			return true;
-		}
-
-		// Always keep if existing is much deeper
-		if (existing.depth > newDepth + 4) {
-			return false;
-		}
-
-		// **NEW: Enhanced replacement decision based on multiple factors**
-		final var existingPriority = existing.getReplacementPriority(currentAge, searchGeneration);
-
-		// **NEW: Dynamic threshold based on table load factor**
-		var threshold = 30; // Base threshold
-		final var loadFactor = getLoadFactor();
-		if (loadFactor > 0.8) {
-			threshold -= 10; // More aggressive replacement when table is full
-		} else if (loadFactor < 0.5) {
-			threshold += 10; // More conservative when table has space
-		}
-
-		// **NEW: Bonus for exact nodes and entries with moves**
-		if (newNodeType == 0) { // Exact node
-			threshold -= 5;
-		}
-		if (existing.bestMove != null && newNodeType != 0) {
-			threshold += 8; // Harder to replace entries with moves
-		}
-
-		// **NEW: Generation-based replacement preference**
-		if (existing.searchGeneration < searchGeneration - 5) {
-			threshold -= 15; // Easier to replace very old entries
-		}
-
-		return existingPriority > threshold;
-	}
-
-	/**
-	 * **NEW: Get table size for monitoring**
-	 */
-	public int size() {
-		return storedEntries;
-	}
-
-	/**
-	 * **ENHANCED: Store with comprehensive replacement strategy and statistics**
-	 */
-	public void store(final long zobristKey, final int score, final int depth, final Move bestMove,
-			final int nodeType) {
-		final var index = getIndex(zobristKey);
-		final var existing = table[index];
-
-		// Check if we should replace the existing entry
-		if (!shouldReplace(existing, depth, nodeType)) {
-			return;
-		}
-		// Count replacements for statistics
-		if (existing != null) {
-			replacementCount++;
-		} else {
-			storedEntries++;
-		}
-		// **NEW: Use current search generation for new entries**
-		table[index] = new TTEntry(zobristKey, score, depth, bestMove, nodeType, currentAge, searchGeneration);
-	}
+    }
 }

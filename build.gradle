@@ -60,9 +60,6 @@ dependencies {
     
     // Testing dependencies
     testImplementation 'org.junit.jupiter:junit-jupiter:6.0.0'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.0'
-    testImplementation 'org.mockito:mockito-core:5.20.0'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.20.0'
     testImplementation 'org.assertj:assertj-core:3.27.6'
     
     // Explicitly declare test runtime engine
@@ -91,7 +88,7 @@ test {
     
     // Increase memory for tests
     minHeapSize = "256m"
-    maxHeapSize = "2g"
+    maxHeapSize = "4g"
     
     // Enable native access for tests
     jvmArgs += '--enable-native-access=ALL-UNNAMED'
@@ -111,10 +108,8 @@ test {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_24
-    targetCompatibility = JavaVersion.VERSION_24
     toolchain {
-        languageVersion = JavaLanguageVersion.of(24)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -161,9 +156,9 @@ graalvmNative {
 tasks.withType(Jar).configureEach {
     exclude(
         'META-INF/ECLIPSE*',
-    	'META-INF/maven/**/**/*',
-    	'META-INF/versions/9/*',
-    	'META-INF/*.txt',
+        'META-INF/maven/**/**/*',
+   	    'META-INF/versions/9/*',
+        'META-INF/*.txt',
         'about_files/*',
         'version.txt',
         '.api_description',
