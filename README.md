@@ -232,11 +232,10 @@ This is free and unencumbered software released into the public domain.
 
 ### Dependencies
 
-- **Eclipse SWT 3.130.0**: GUI framework
+- **Eclipse SWT 3.131.0**: GUI framework
 - **ChessLib 1.3.4**: Chess engine library
-- **JUnit Jupiter 6.0.0**: Testing framework
-- **Mockito 5.18.0**: Mocking framework
-- **AssertJ 4.0.0**: Assertion library
+- **JUnit Jupiter 6.0.1**: Testing framework
+- **AssertJ 3.27.6**: Assertion library
 - **JMH 1.37**: Performance benchmarking
 
 ### System Requirements
@@ -261,4 +260,4 @@ For questions, bug reports, or feature requests:
 
 ---
 
-*Built with ❤️ for chess enthusiasts and AI researchers*
+*Built with ❤️ for chess enthusiasts*
