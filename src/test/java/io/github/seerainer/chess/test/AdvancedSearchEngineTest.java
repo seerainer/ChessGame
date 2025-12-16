@@ -17,14 +17,10 @@ import io.github.seerainer.chess.ChessAI;
  */
 public class AdvancedSearchEngineTest {
 
-    private AdvancedSearchEngineTest() {
-	throw new IllegalStateException("Utility class");
-    }
-
     @Test
     @DisplayName("Test complex tactical position")
     @Timeout(value = 60, unit = TimeUnit.SECONDS)
-    static void testComplexPosition() {
+    void testComplexPosition() {
 	System.out.println("\n=== Test 3: Complex Tactical Position ===");
 
 	// Tactical position with many captures possible
@@ -46,7 +42,7 @@ public class AdvancedSearchEngineTest {
     @Test
     @DisplayName("Test deep search")
     @Timeout(value = 60, unit = TimeUnit.SECONDS)
-    static void testDeepSearch() {
+    void testDeepSearch() {
 	System.out.println("\n=== Test 2: Deep Search (complex position) ===");
 
 	// Set up a more complex position
@@ -68,7 +64,7 @@ public class AdvancedSearchEngineTest {
     @Test
     @DisplayName("Test parallel search capability")
     @Timeout(value = 60, unit = TimeUnit.SECONDS)
-    static void testParallelSearch() {
+    void testParallelSearch() {
 	System.out.println("\n=== Test 4: Parallel Search ===");
 
 	final var board = new Board();
@@ -88,7 +84,7 @@ public class AdvancedSearchEngineTest {
     @Test
     @DisplayName("Test shallow search")
     @Timeout(value = 30, unit = TimeUnit.SECONDS)
-    static void testShallowSearch() {
+    void testShallowSearch() {
 	System.out.println("\n=== Test 1: Shallow Search ===");
 
 	final var board = new Board();

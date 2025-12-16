@@ -1,5 +1,14 @@
 package io.github.seerainer.chess.test;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import java.util.concurrent.TimeUnit;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+
 import com.github.bhlangonijr.chesslib.Board;
 
 import io.github.seerainer.chess.ChessAI;
@@ -9,16 +18,13 @@ import io.github.seerainer.chess.ChessAI;
  */
 public class TacticalTest {
 
-    public static void main(final String[] args) {
-	testHangingPiecePrevention();
-	testTacticalAwareness();
-	testCaptureAvoidance();
-    }
-
     /**
      * Test if AI avoids unnecessary piece captures that lead to loss
      */
-    private static void testCaptureAvoidance() {
+    @Test
+    @DisplayName("Test Capture Avoidance")
+    @Timeout(value = 30, unit = TimeUnit.SECONDS)
+    void testCaptureAvoidance() {
 	System.out.println("=== Testing Capture Avoidance ===");
 
 	// Position where capturing would lose material
@@ -30,19 +36,27 @@ public class TacticalTest {
 	System.out.println("Testing if AI avoids bad captures...");
 
 	final var ai = new ChessAI();
-	final var bestMove = ai.getBestMove(board);
+	try {
+	    final var bestMove = ai.getBestMove(board);
 
-	System.out.println("AI chose: " + bestMove);
+	    System.out.println("AI chose: " + bestMove);
+	    assertNotNull(bestMove, "AI should find a move");
 
-	// Any reasonable move is better than hanging pieces
-	System.out.println("✅ AI evaluated position with anti-blunder system");
-	System.out.println();
+	    // Any reasonable move is better than hanging pieces
+	    System.out.println("✅ AI evaluated position with anti-blunder system");
+	    System.out.println();
+	} finally {
+	    ai.cleanup();
+	}
     }
 
     /**
      * Test if AI avoids hanging pieces
      */
-    private static void testHangingPiecePrevention() {
+    @Test
+    @DisplayName("Test Hanging Piece Prevention")
+    @Timeout(value = 30, unit = TimeUnit.SECONDS)
+    void testHangingPiecePrevention() {
 	System.out.println("=== Testing Hanging Piece Prevention ===");
 
 	// Position where moving queen would hang it
@@ -54,23 +68,28 @@ public class TacticalTest {
 	System.out.println("Testing if AI avoids hanging queen with Qh5...");
 
 	final var ai = new ChessAI();
-	final var bestMove = ai.getBestMove(board);
+	try {
+	    final var bestMove = ai.getBestMove(board);
 
-	System.out.println("AI chose: " + bestMove);
+	    System.out.println("AI chose: " + bestMove);
+	    assertNotNull(bestMove, "AI should find a move");
 
-	// Check if AI avoided the blunder
-	if ("d1h5".equals(bestMove.toString())) {
-	    System.out.println("❌ FAILED: AI hung the queen!");
-	} else {
+	    // Check if AI avoided the blunder
+	    assertNotEquals("d1h5", bestMove.toString(), "AI hung the queen!");
 	    System.out.println("✅ PASSED: AI avoided hanging the queen");
+	    System.out.println();
+	} finally {
+	    ai.cleanup();
 	}
-	System.out.println();
     }
 
     /**
      * Test tactical awareness in complex positions
      */
-    private static void testTacticalAwareness() {
+    @Test
+    @DisplayName("Test Tactical Awareness")
+    @Timeout(value = 30, unit = TimeUnit.SECONDS)
+    void testTacticalAwareness() {
 	System.out.println("=== Testing Tactical Awareness ===");
 
 	// Position with tactical opportunity (fork possible)
@@ -82,10 +101,15 @@ public class TacticalTest {
 	System.out.println("Testing tactical awareness...");
 
 	final var ai = new ChessAI();
-	final var bestMove = ai.getBestMove(board);
+	try {
+	    final var bestMove = ai.getBestMove(board);
 
-	System.out.println("AI chose: " + bestMove);
-	System.out.println("✅ Move evaluated with tactical depth");
-	System.out.println();
+	    System.out.println("AI chose: " + bestMove);
+	    assertNotNull(bestMove, "AI should find a move");
+	    System.out.println("✅ Move evaluated with tactical depth");
+	    System.out.println();
+	} finally {
+	    ai.cleanup();
+	}
     }
 }

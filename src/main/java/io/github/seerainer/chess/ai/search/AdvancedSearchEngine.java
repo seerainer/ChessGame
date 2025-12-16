@@ -3,7 +3,10 @@ package io.github.seerainer.chess.ai.search;
 import java.util.List;
 
 import com.github.bhlangonijr.chesslib.Board;
+import com.github.bhlangonijr.chesslib.Piece;
+import com.github.bhlangonijr.chesslib.PieceType;
 import com.github.bhlangonijr.chesslib.Side;
+import com.github.bhlangonijr.chesslib.Square;
 import com.github.bhlangonijr.chesslib.move.Move;
 
 import io.github.seerainer.chess.ai.PositionEvaluator;
@@ -35,11 +38,11 @@ public class AdvancedSearchEngine {
     /**
      * Calculate Late Move Reduction amount
      */
-    private static int calculateLMRReduction(final int moveCount, final int depth, final boolean isPVNode,
-	    final Move move) {
+    private static int calculateLMRReduction(final Board board, final int moveCount, final int depth,
+	    final boolean isPVNode, final Move move) {
 	// Don't reduce important moves
 	if (moveCount <= ChessConfig.Search.LMR_SKIP_MOVES || depth <= ChessConfig.Search.LMR_MIN_DEPTH
-		|| isImportantMove(move)) {
+		|| isImportantMove(board, move)) {
 	    return 0;
 	}
 
@@ -66,24 +69,34 @@ public class AdvancedSearchEngine {
      * Check if the position has non-pawn material (simplified)
      */
     private static boolean hasNonPawnMaterial(final Board board) {
-	// Simplified check - if there are pieces other than pawns and kings
-	try {
-	    return board.legalMoves().size() > 0 && !board.isKingAttacked();
-	} catch (final Exception e) {
-	    System.err.println("Error checking hasNonPawnMaterial for position: " + board.getFen());
-	    System.err.println("Error: " + e.getMessage());
-	    return false;
+	for (final var square : Square.values()) {
+	    if (square != Square.NONE) {
+		final var piece = board.getPiece(square);
+		if (piece != Piece.NONE && piece.getPieceType() != PieceType.PAWN
+			&& piece.getPieceType() != PieceType.KING) {
+		    return true;
+		}
+	    }
 	}
+	return false;
     }
 
     /**
      * Check if a move is important (shouldn't be reduced or pruned)
      */
-    private static boolean isImportantMove(final Move move) {
+    private static boolean isImportantMove(final Board board, final Move move) {
 	// Captures, promotions, checks, and castling are important
-	return move.getPromotion() != null || // Promotion
-		move.toString().contains("x") || // Capture (simplified check)
-		move.toString().contains("O"); // Castling
+	// Capture
+	if ((move.getPromotion() != Piece.NONE) || (board.getPiece(move.getTo()) != Piece.NONE)) {
+	    return true;
+	}
+	// Castling (King moves 2 squares)
+	final var piece = board.getPiece(move.getFrom());
+	if (piece.getPieceType() == PieceType.KING
+		&& Math.abs(move.getFrom().getFile().ordinal() - move.getTo().getFile().ordinal()) == 2) {
+	    return true;
+	}
+	return false;
     }
 
     /**
@@ -117,7 +130,7 @@ public class AdvancedSearchEngine {
     private static boolean shouldApplySingularExtension(final Board board, final Move move, final int depth) {
 	// Simplified singular extension logic
 	return depth >= ChessConfig.Search.SINGULAR_EXTENSION_MIN_DEPTH && !board.isKingAttacked()
-		&& isImportantMove(move);
+		&& isImportantMove(board, move);
     }
 
     /**
@@ -254,7 +267,7 @@ public class AdvancedSearchEngine {
 		score = -search(board, newDepth, -beta, -alpha, !isMaximizing);
 	    } else {
 		// Late Move Reduction (LMR)
-		final var reduction = calculateLMRReduction(moveCount, depth, isPVNode, move);
+		final var reduction = calculateLMRReduction(board, moveCount, depth, isPVNode, move);
 		final var reducedDepth = Math.max(newDepth - reduction, 0);
 
 		// Search with null window

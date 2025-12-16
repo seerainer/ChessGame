@@ -64,17 +64,17 @@ public class EvaluationTuner {
     /**
      * Calculate endgame-specific bonuses
      */
-    private static int calculateEndgameBonus() {
+    private static int calculateEndgameBonus(final Board board) {
 	var bonus = 0;
 
 	// Bonus for king activity
-	bonus += evaluateKingActivity();
+	bonus += evaluateKingActivity(board);
 
 	// Bonus for passed pawns
 	bonus += evaluatePassedPawns();
 
 	// Bonus for piece activity in endgame
-	bonus += evaluateEndgamePieceActivity();
+	bonus += evaluateEndgamePieceActivity(board);
 
 	return bonus;
     }
@@ -82,14 +82,14 @@ public class EvaluationTuner {
     /**
      * Calculate middlegame-specific bonuses
      */
-    private static int calculateMiddlegameBonus() {
+    private static int calculateMiddlegameBonus(final Board board) {
 	var bonus = 0;
 
 	// Bonus for piece coordination
 	bonus += evaluatePieceCoordination();
 
 	// Bonus for king safety
-	bonus += evaluateKingSafety();
+	bonus += evaluateKingSafety(board);
 
 	// Bonus for pawn structure
 	bonus += evaluatePawnStructure();
@@ -122,7 +122,7 @@ public class EvaluationTuner {
     }
 
     /**
-     * Calculate position-specific bonuses
+     * Calculate position-specific bonuses (White relative)
      */
     public static int calculatePositionBonus(final Board board, final Side side) {
 	var bonus = 0;
@@ -132,9 +132,9 @@ public class EvaluationTuner {
 
 	// Game phase bonuses
 	switch (phase) {
-	case OPENING -> bonus += calculateOpeningBonus(board, side);
-	case MIDDLEGAME -> bonus += calculateMiddlegameBonus();
-	case ENDGAME -> bonus += calculateEndgameBonus();
+	case OPENING -> bonus += calculateOpeningBonus(board, Side.WHITE) - calculateOpeningBonus(board, Side.BLACK);
+	case MIDDLEGAME -> bonus += calculateMiddlegameBonus(board);
+	case ENDGAME -> bonus += calculateEndgameBonus(board);
 	default -> throw new IllegalArgumentException("Unexpected value: " + phase);
 	}
 
@@ -284,34 +284,62 @@ public class EvaluationTuner {
 	return control;
     }
 
-    private static int evaluateEndgamePieceActivity() {
+    private static int evaluateEndgamePieceActivity(final Board board) {
 	// Simplified endgame piece activity evaluation
-	return 0; // Placeholder for more complex endgame piece analysis
+	// Favor centralized pieces in endgame
+	var score = 0;
+	for (final var square : Square.values()) {
+	    if (square != Square.NONE) {
+		final var piece = board.getPiece(square);
+		if (piece != Piece.NONE && piece.getPieceType() != PieceType.PAWN
+			&& piece.getPieceType() != PieceType.KING) {
+		    final var file = square.getFile().ordinal();
+		    final var rank = square.getRank().ordinal();
+		    final var centerDist = Math.abs(file - 3.5) + Math.abs(rank - 3.5);
+		    final var activity = (int) ((7 - centerDist) * 5);
+		    score += piece.getPieceSide() == Side.WHITE ? activity : -activity;
+		}
+	    }
+	}
+	return score;
     }
 
-    private static int evaluateKingActivity() {
-	// Simplified king activity evaluation
-	return 0; // Placeholder for more complex king activity analysis
+    private static int evaluateKingActivity(final Board board) {
+	// Use KingSafetyEvaluator logic for king activity
+	// It returns White - Black score
+	return KingSafetyEvaluator.evaluateKingSafety(board, true);
     }
 
-    private static int evaluateKingSafety() {
-	// Simplified king safety evaluation
-	return 0; // Placeholder for more complex king safety analysis
+    private static int evaluateKingSafety(final Board board) {
+	// Use KingSafetyEvaluator logic for king safety
+	// It returns White - Black score
+	return KingSafetyEvaluator.evaluateKingSafety(board, false);
     }
 
     private static int evaluatePassedPawns() {
 	// Simplified passed pawn evaluation
-	return 0; // Placeholder for more complex passed pawn analysis
+	// We can reuse PawnStructureEvaluatorAdvanced if we instantiate it
+	// But for now, let's do a simple check or return 0 if too complex to duplicate
+	// Since we already have PawnStructureEvaluatorAdvanced as a component,
+	// maybe we don't need to double count it here unless we want to tune it
+	// specifically.
+	// Let's return 0 to avoid double counting, as the component is already added.
+	return 0;
     }
 
     private static int evaluatePawnStructure() {
 	// Simplified pawn structure evaluation
-	return 0; // Placeholder for more complex pawn analysis
+	// Similar to passed pawns, we have a component for this.
+	// But maybe we want to add specific bonuses for middlegame?
+	// Let's return 0 to avoid double counting.
+	return 0;
     }
 
     private static int evaluatePieceCoordination() {
-	// Simplified piece coordination evaluation
-	return 0; // Placeholder for more complex coordination analysis
+
+	// This is expensive to calculate fully, so we'll skip for now or implement a
+	// very simple version
+	return 0;
     }
 
     private static int evaluatePieceDevelopment(final Board board, final Side side) {

@@ -12,11 +12,7 @@ import com.github.bhlangonijr.chesslib.Square;
  * Specialized endgame evaluation with advanced knowledge of typical endgame
  * patterns
  */
-public class EndgameEvaluator {
-
-    private EndgameEvaluator() {
-	throw new IllegalStateException("Utility class");
-    }
+public class EndgameEvaluator implements EvaluationComponent {
 
     // Endgame evaluation constants
     private static final int KING_ENDGAME_BONUS = 50;
@@ -26,6 +22,24 @@ public class EndgameEvaluator {
     private static final int OPPOSITION_BONUS = 25;
     // Distance bonuses for endgames
     private static final int KING_PAWN_DISTANCE_BONUS = 5;
+
+    @Override
+    public int evaluate(final EvaluationContext context) {
+	if (!context.isEndGame()) {
+	    return 0;
+	}
+	return evaluateEndgame(context.getBoard(), context.getEvaluatingSide());
+    }
+
+    @Override
+    public String getComponentName() {
+	return "Endgame Evaluator";
+    }
+
+    @Override
+    public double getWeight(final EvaluationContext context) {
+	return context.isEndGame() ? 1.0 : 0.0;
+    }
 
     /**
      * Classify the type of endgame
@@ -70,8 +84,12 @@ public class EndgameEvaluator {
 	return count;
     }
 
-    private static int evaluateBishopActivity() {
-	return 0;
+    private static int evaluateBishopActivity(final Square square) {
+	final var file = square.getFile().ordinal();
+	final var rank = square.getRank().ordinal();
+	// Centralization bonus for bishop
+	final var centerDist = Math.abs(file - 3.5) + Math.abs(rank - 3.5);
+	return (int) ((7 - centerDist) * 3);
     }
 
     /**
@@ -93,7 +111,8 @@ public class EndgameEvaluator {
 	    if (square != Square.NONE) {
 		final var piece = board.getPiece(square);
 		if (piece.getPieceType() == PieceType.BISHOP) {
-		    score += evaluateBishopActivity();
+		    final var activity = evaluateBishopActivity(square);
+		    score += piece.getPieceSide() == Side.WHITE ? activity : -activity;
 		}
 	    }
 	}
@@ -217,8 +236,12 @@ public class EndgameEvaluator {
 	return perspective == Side.WHITE ? score : -score;
     }
 
-    private static int evaluateKnightActivity() {
-	return 0;
+    private static int evaluateKnightActivity(final Square square) {
+	final var file = square.getFile().ordinal();
+	final var rank = square.getRank().ordinal();
+	// Centralization bonus for knight
+	final var centerDist = Math.abs(file - 3.5) + Math.abs(rank - 3.5);
+	return (int) ((7 - centerDist) * 4);
     }
 
     /**
@@ -232,7 +255,8 @@ public class EndgameEvaluator {
 	    if (square != Square.NONE) {
 		final var piece = board.getPiece(square);
 		if (piece.getPieceType() == PieceType.KNIGHT) {
-		    score += evaluateKnightActivity();
+		    final var activity = evaluateKnightActivity(square);
+		    score += piece.getPieceSide() == Side.WHITE ? activity : -activity;
 		}
 	    }
 	}
@@ -305,8 +329,12 @@ public class EndgameEvaluator {
 	return 0;
     }
 
-    private static int evaluateQueenActivity() {
-	return 0;
+    private static int evaluateQueenActivity(final Square square) {
+	final var file = square.getFile().ordinal();
+	final var rank = square.getRank().ordinal();
+	// Centralization bonus for queen
+	final var centerDist = Math.abs(file - 3.5) + Math.abs(rank - 3.5);
+	return (int) ((7 - centerDist) * 2);
     }
 
     /**
@@ -320,7 +348,8 @@ public class EndgameEvaluator {
 	    if (square != Square.NONE) {
 		final var piece = board.getPiece(square);
 		if (piece.getPieceType() == PieceType.QUEEN) {
-		    score += evaluateQueenActivity();
+		    final var activity = evaluateQueenActivity(square);
+		    score += piece.getPieceSide() == Side.WHITE ? activity : -activity;
 		}
 	    }
 	}
@@ -329,11 +358,23 @@ public class EndgameEvaluator {
     }
 
     // Placeholder implementations for evaluation methods
-    private static int evaluateRookActivity() {
-	return 0;
+    private static int evaluateRookActivity(final Board board, final Square square) {
+	var score = 0;
+	final var rank = square.getRank().ordinal();
+	final var side = board.getPiece(square).getPieceSide();
+
+	// 7th rank bonus (relative to side)
+	if ((side == Side.WHITE && rank == 6) || (side == Side.BLACK && rank == 1)) {
+	    score += 20;
+	}
+	return score;
     }
 
     private static int evaluateRookBehindPassedPawn() {
+	// Simplified check for rooks behind passed pawns
+	// This would require more complex logic to identify passed pawns and rooks
+	// behind them
+	// For now, returning 0 to avoid performance overhead of full scan
 	return 0;
     }
 
@@ -348,7 +389,8 @@ public class EndgameEvaluator {
 	    if (square != Square.NONE) {
 		final var piece = board.getPiece(square);
 		if (piece.getPieceType() == PieceType.ROOK) {
-		    score += evaluateRookActivity();
+		    final var activity = evaluateRookActivity(board, square);
+		    score += piece.getPieceSide() == Side.WHITE ? activity : -activity;
 		}
 	    }
 	}
