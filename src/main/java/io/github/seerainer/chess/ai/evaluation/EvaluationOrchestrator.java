@@ -140,8 +140,7 @@ public class EvaluationOrchestrator {
 	addComponent(new KingSafetyEvaluator());
 	addComponent(new PawnStructureEvaluatorAdvanced());
 
-	// Future components to add:
-	// addComponent(new EndgameEvaluator()); // When implemented as
-	// EvaluationComponent
+	// Add Endgame Evaluator
+	addComponent(new EndgameEvaluator());
     }
 }

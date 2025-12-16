@@ -232,7 +232,7 @@ This is free and unencumbered software released into the public domain.
 
 ### Dependencies
 
-- **Eclipse SWT 3.131.0**: GUI framework
+- **Eclipse SWT 3.132.0**: GUI framework
 - **ChessLib 1.3.4**: Chess engine library
 - **JUnit Jupiter 6.0.1**: Testing framework
 - **AssertJ 3.27.6**: Assertion library
@@ -246,6 +246,14 @@ This is free and unencumbered software released into the public domain.
 - **OS**: Windows 10+, macOS 10.14+, Linux (GTK 3.0+)
 
 ## Version History
+
+- **v0.1.1**
+- Upgrade Java language version from 24 to 25
+- Introduce performance tracking in ChessAI with total nodes searched and search time
+- Implement adaptive search depth calculation based on position complexity
+- Enhance iterative deepening with adaptive depth and better time management
+- Add new performance statistics methods in ChessAI
+- Clean up and optimize various AI components for better performance
 
 - **v0.1.0**: Initial release with basic gameplay and AI
 - Advanced search algorithms and evaluation functions
