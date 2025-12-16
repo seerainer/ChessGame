@@ -247,7 +247,7 @@ This is free and unencumbered software released into the public domain.
 
 ## Version History
 
-- **v0.1.1**
+### **v0.1.1**
 - Upgrade Java language version from 24 to 25
 - Introduce performance tracking in ChessAI with total nodes searched and search time
 - Implement adaptive search depth calculation based on position complexity
@@ -255,7 +255,7 @@ This is free and unencumbered software released into the public domain.
 - Add new performance statistics methods in ChessAI
 - Clean up and optimize various AI components for better performance
 
-- **v0.1.0**: Initial release with basic gameplay and AI
+### **v0.1.0**: Initial release with basic gameplay and AI
 - Advanced search algorithms and evaluation functions
 - Cross-platform support with native compilation
 - Comprehensive testing suite
@@ -269,3 +269,4 @@ For questions, bug reports, or feature requests:
 ---
 
 *Built with ❤️ for chess enthusiasts*
+
