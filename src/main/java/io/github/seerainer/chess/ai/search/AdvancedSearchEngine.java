@@ -106,14 +106,12 @@ public class AdvancedSearchEngine {
 	    }
 	} catch (final Exception e) {
 	    // If there's an error, assume the move is not important
-	    System.err.println(new StringBuilder().append("Error validating move ")
-		    .append(move).append(" for check detection: ").append(e.getMessage()).toString());
+	    System.err.println("Error validating move " + move + " for check detection: " + e.getMessage());
 	    try {
 		board.undoMove();
 	    } catch (final Exception ex) {
 		// Board might be in inconsistent state after failed undo
-		System.err.println(new StringBuilder().append("Error undoing move ")
-			.append(move).append(" after failed validation: ").append(ex.getMessage()).toString());
+		System.err.println("Error undoing move " + move + " after failed validation: " + ex.getMessage());
 	    }
 	}
 	return false;
