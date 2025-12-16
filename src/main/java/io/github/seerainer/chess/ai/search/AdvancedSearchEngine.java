@@ -86,7 +86,7 @@ public class AdvancedSearchEngine {
      */
     private static boolean isImportantMove(final Board board, final Move move) {
 	// Captures, promotions, checks, and castling are important
-	// Capture
+	// Promotion or Capture
 	if ((move.getPromotion() != Piece.NONE) || (board.getPiece(move.getTo()) != Piece.NONE)) {
 	    return true;
 	}
@@ -95,6 +95,24 @@ public class AdvancedSearchEngine {
 	if (piece.getPieceType() == PieceType.KING
 		&& Math.abs(move.getFrom().getFile().ordinal() - move.getTo().getFile().ordinal()) == 2) {
 	    return true;
+	}
+	// Check if move delivers check
+	try {
+	    board.doMove(move);
+	    final var givesCheck = board.isKingAttacked();
+	    board.undoMove();
+	    if (givesCheck) {
+		return true;
+	    }
+	} catch (final Exception e) {
+	    // If there's an error, assume the move is not important
+	    System.err.println("Error validating move " + move + " for check detection: " + e.getMessage());
+	    try {
+		board.undoMove();
+	    } catch (final Exception ex) {
+		// Board might be in inconsistent state after failed undo
+		System.err.println("Error undoing move " + move + " after failed validation: " + ex.getMessage());
+	    }
 	}
 	return false;
     }

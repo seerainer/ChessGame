@@ -64,7 +64,7 @@ public class EvaluationTuner {
     /**
      * Calculate endgame-specific bonuses
      */
-    private static int calculateEndgameBonus(final Board board) {
+    private static int calculateEndgameBonus(final Board board, final Side side) {
 	var bonus = 0;
 
 	// Bonus for king activity
@@ -76,13 +76,14 @@ public class EvaluationTuner {
 	// Bonus for piece activity in endgame
 	bonus += evaluateEndgamePieceActivity(board);
 
-	return bonus;
+	// Apply side-relative transformation
+	return side == Side.WHITE ? bonus : -bonus;
     }
 
     /**
      * Calculate middlegame-specific bonuses
      */
-    private static int calculateMiddlegameBonus(final Board board) {
+    private static int calculateMiddlegameBonus(final Board board, final Side side) {
 	var bonus = 0;
 
 	// Bonus for piece coordination
@@ -94,7 +95,8 @@ public class EvaluationTuner {
 	// Bonus for pawn structure
 	bonus += evaluatePawnStructure();
 
-	return bonus;
+	// Apply side-relative transformation
+	return side == Side.WHITE ? bonus : -bonus;
     }
 
     /**
@@ -133,8 +135,8 @@ public class EvaluationTuner {
 	// Game phase bonuses
 	switch (phase) {
 	case OPENING -> bonus += calculateOpeningBonus(board, Side.WHITE) - calculateOpeningBonus(board, Side.BLACK);
-	case MIDDLEGAME -> bonus += calculateMiddlegameBonus(board);
-	case ENDGAME -> bonus += calculateEndgameBonus(board);
+	case MIDDLEGAME -> bonus += calculateMiddlegameBonus(board, side);
+	case ENDGAME -> bonus += calculateEndgameBonus(board, side);
 	default -> throw new IllegalArgumentException("Unexpected value: " + phase);
 	}
 
