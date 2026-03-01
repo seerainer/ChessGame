@@ -886,12 +886,16 @@ public class TacticalPatternEvaluator implements EvaluationComponent {
 		    break;
 		}
 
+		// The moving piece lands on move.getTo() after this move — treat it as a blocker
+		if (sq == move.getTo()) {
+		    break;
+		}
+
 		final var piece = board.getPiece(sq);
 		if (piece != Piece.NONE) {
 		    // Found a piece — check if it's our sliding piece aligned with this direction
 		    // Skip if this is the piece that's actually moving
-		    if ((piece.getPieceSide() == side && isSlidingPieceForDirection(piece.getPieceType(), dir))
-			    && (sq != move.getTo())) {
+		    if (piece.getPieceSide() == side && isSlidingPieceForDirection(piece.getPieceType(), dir)) {
 			foundOurSlider = true;
 		    }
 		    break; // Stop regardless — first piece blocks the ray
@@ -912,6 +916,11 @@ public class TacticalPatternEvaluator implements EvaluationComponent {
 	    while (f >= 0 && f <= 7 && r >= 0 && r <= 7) {
 		final var sq = getSquareFromCoordinates(r, f);
 		if (sq == Square.NONE) {
+		    break;
+		}
+
+		// The moving piece lands on move.getTo() after this move — treat it as a blocker
+		if (sq == move.getTo()) {
 		    break;
 		}
 

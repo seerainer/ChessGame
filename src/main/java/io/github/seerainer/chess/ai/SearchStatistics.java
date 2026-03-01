@@ -1,100 +1,104 @@
 package io.github.seerainer.chess.ai;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * Centralized statistics tracking for chess AI search operations
  */
 public class SearchStatistics {
     // Total node count
-    private long nodesSearched = 0;
+    private final AtomicLong nodesSearched = new AtomicLong(0);
 
     // Futility pruning statistics
-    private long futilityPrunes = 0;
-    private long reverseFutilityPrunes = 0;
-    private long razoringPrunes = 0;
-    private long extendedFutilityPrunes = 0;
-    private long probcutPrunes = 0;
-    private long moveCountPrunes = 0;
+    private final AtomicLong futilityPrunes = new AtomicLong(0);
+    private final AtomicLong reverseFutilityPrunes = new AtomicLong(0);
+    private final AtomicLong razoringPrunes = new AtomicLong(0);
+    private final AtomicLong extendedFutilityPrunes = new AtomicLong(0);
+    private final AtomicLong probcutPrunes = new AtomicLong(0);
+    private final AtomicLong moveCountPrunes = new AtomicLong(0);
 
     // PVS statistics
-    private long pvsNodes = 0;
-    private long pvsResearches = 0;
-    private long pvsFailHigh = 0;
-    private long pvsFailLow = 0;
-    private long nullWindowSearches = 0;
+    private final AtomicLong pvsNodes = new AtomicLong(0);
+    private final AtomicLong pvsResearches = new AtomicLong(0);
+    private final AtomicLong pvsFailHigh = new AtomicLong(0);
+    private final AtomicLong pvsFailLow = new AtomicLong(0);
+    private final AtomicLong nullWindowSearches = new AtomicLong(0);
 
     // Quiescence search statistics
-    private long qNodes = 0;
-    private long deltaPrunes = 0;
-    private long qFutilityPrunes = 0;
-    private long seePrunes = 0;
-    private long qTTHits = 0;
+    private final AtomicLong qNodes = new AtomicLong(0);
+    private final AtomicLong deltaPrunes = new AtomicLong(0);
+    private final AtomicLong qFutilityPrunes = new AtomicLong(0);
+    private final AtomicLong seePrunes = new AtomicLong(0);
+    private final AtomicLong qTTHits = new AtomicLong(0);
 
     public String getFutilityStats() {
 	return "Futility Stats: %d futility, %d reverse, %d razoring, %d extended, %d probcut, %d movecount".formatted(
-		futilityPrunes, reverseFutilityPrunes, razoringPrunes, extendedFutilityPrunes, probcutPrunes,
-		moveCountPrunes);
+		futilityPrunes.get(), reverseFutilityPrunes.get(), razoringPrunes.get(), extendedFutilityPrunes.get(),
+		probcutPrunes.get(), moveCountPrunes.get());
     }
 
     public String getPVSStats() {
-	final var researchRate = pvsNodes > 0 ? (double) pvsResearches / pvsNodes * 100 : 0;
+	final var pvsNodesVal = pvsNodes.get();
+	final var researchRate = pvsNodesVal > 0 ? (double) pvsResearches.get() / pvsNodesVal * 100 : 0;
 	return "PVS Stats: %d nodes, %d researches (%.1f%%), %d fail-high, %d fail-low, %d null-window"
-		.formatted(pvsNodes, pvsResearches, researchRate, pvsFailHigh, pvsFailLow, nullWindowSearches);
+		.formatted(pvsNodesVal, pvsResearches.get(), researchRate, pvsFailHigh.get(), pvsFailLow.get(),
+			nullWindowSearches.get());
     }
 
     public String getQuiescenceStats() {
 	return "Quiescence Stats: %d nodes, %d delta prunes, %d futility prunes, %d SEE prunes, %d TT hits"
-		.formatted(qNodes, deltaPrunes, qFutilityPrunes, seePrunes, qTTHits);
+		.formatted(qNodes.get(), deltaPrunes.get(), qFutilityPrunes.get(), seePrunes.get(), qTTHits.get());
     }
 
     public long getNodesSearched() {
-	return nodesSearched;
+	return nodesSearched.get();
     }
 
     public void incrementNodes() {
-	nodesSearched++;
+	nodesSearched.incrementAndGet();
     }
 
     public void incrementProbcutPrunes() {
-	probcutPrunes++;
+	probcutPrunes.incrementAndGet();
     }
 
     // Quiescence statistics getters and incrementers
     public void incrementQNodes() {
-	qNodes++;
+	qNodes.incrementAndGet();
     }
 
     public void incrementRazoringPrunes() {
-	razoringPrunes++;
+	razoringPrunes.incrementAndGet();
     }
 
     public void incrementReverseFutilityPrunes() {
-	reverseFutilityPrunes++;
+	reverseFutilityPrunes.incrementAndGet();
     }
 
     public void reset() {
 	// Total nodes
-	nodesSearched = 0;
+	nodesSearched.set(0);
 
 	// Futility stats
-	futilityPrunes = 0;
-	reverseFutilityPrunes = 0;
-	razoringPrunes = 0;
-	extendedFutilityPrunes = 0;
-	probcutPrunes = 0;
-	moveCountPrunes = 0;
+	futilityPrunes.set(0);
+	reverseFutilityPrunes.set(0);
+	razoringPrunes.set(0);
+	extendedFutilityPrunes.set(0);
+	probcutPrunes.set(0);
+	moveCountPrunes.set(0);
 
 	// PVS stats
-	pvsNodes = 0;
-	pvsResearches = 0;
-	pvsFailHigh = 0;
-	pvsFailLow = 0;
-	nullWindowSearches = 0;
+	pvsNodes.set(0);
+	pvsResearches.set(0);
+	pvsFailHigh.set(0);
+	pvsFailLow.set(0);
+	nullWindowSearches.set(0);
 
 	// Quiescence stats
-	qNodes = 0;
-	deltaPrunes = 0;
-	qFutilityPrunes = 0;
-	seePrunes = 0;
-	qTTHits = 0;
+	qNodes.set(0);
+	deltaPrunes.set(0);
+	qFutilityPrunes.set(0);
+	seePrunes.set(0);
+	qTTHits.set(0);
     }
 }
