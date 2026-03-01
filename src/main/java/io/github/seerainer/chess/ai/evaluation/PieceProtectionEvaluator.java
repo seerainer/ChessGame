@@ -232,7 +232,7 @@ public class PieceProtectionEvaluator implements EvaluationComponent {
 
     @Override
     public double getWeight(final EvaluationContext context) {
-	// Very high weight to prevent hanging pieces
-	return 8.0;
+	// Moderate weight — piece protection matters but should not drown material
+	return 2.0;
     }
 }

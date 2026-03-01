@@ -1,8 +1,12 @@
 package io.github.seerainer.chess.ai.evaluation;
 
+import java.util.Collections;
+import java.util.List;
+
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.Square;
+import com.github.bhlangonijr.chesslib.move.Move;
 
 /**
  * Context object containing shared evaluation data to avoid redundant
@@ -18,6 +22,9 @@ public class EvaluationContext {
 
     // Cached evaluation results
     private Integer materialScore;
+
+    // Cached legal moves — generated once, shared by all evaluators
+    private List<Move> cachedLegalMoves;
 
     public EvaluationContext(final Board board, final Side evaluatingSide) {
 	this.board = board;
@@ -42,6 +49,21 @@ public class EvaluationContext {
 
     public Side getEvaluatingSide() {
 	return evaluatingSide;
+    }
+
+    /**
+     * Get the legal moves for the current position. Generated lazily and cached.
+     * The returned list is unmodifiable.
+     */
+    public List<Move> getLegalMoves() {
+	if (cachedLegalMoves == null) {
+	    try {
+		cachedLegalMoves = Collections.unmodifiableList(board.legalMoves());
+	    } catch (final Exception e) {
+		cachedLegalMoves = Collections.emptyList();
+	    }
+	}
+	return cachedLegalMoves;
     }
 
     // Cached score getters with lazy initialization

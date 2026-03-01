@@ -2,10 +2,14 @@ package io.github.seerainer.chess.ai.evaluation;
 
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.CastleRight;
+import com.github.bhlangonijr.chesslib.File;
 import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.PieceType;
+import com.github.bhlangonijr.chesslib.Rank;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.Square;
+
+import io.github.seerainer.chess.config.ChessConfig;
 
 /**
  * Evaluation tuning system that provides dynamic weight adjustments based on
@@ -173,10 +177,11 @@ public class EvaluationTuner {
 	    final var count = Long.bitCount(bitboard);
 
 	    switch (piece.getPieceType()) {
-	    case PAWN -> total += count * 100;
-	    case KNIGHT, BISHOP -> total += count * 300;
-	    case ROOK -> total += count * 500;
-	    case QUEEN -> total += count * 900;
+	    case PAWN -> total += count * ChessConfig.Evaluation.PIECE_VALUES_PAWN;
+	    case KNIGHT -> total += count * ChessConfig.Evaluation.PIECE_VALUES_KNIGHT;
+	    case BISHOP -> total += count * ChessConfig.Evaluation.PIECE_VALUES_BISHOP;
+	    case ROOK -> total += count * ChessConfig.Evaluation.PIECE_VALUES_ROOK;
+	    case QUEEN -> total += count * ChessConfig.Evaluation.PIECE_VALUES_QUEEN;
 	    case KING -> {
 		// King is not counted in material, but we can consider its position
 		// for king safety evaluation
@@ -203,11 +208,9 @@ public class EvaluationTuner {
 	    var hasBlackPawn = false;
 
 	    for (var rank = 0; rank < 8; rank++) {
-		// Convert rank/file to Square using square names
-		final var squareName = String.valueOf((char) ('a' + file)) + (rank + 1);
-		final Square square;
-		try {
-		    square = Square.valueOf(squareName.toUpperCase());
+		// Use Square.encode to avoid string allocation
+		final var square = Square.encode(Rank.allRanks[rank], File.allFiles[file]);
+		if (square != null && square != Square.NONE) {
 		    final var piece = board.getPiece(square);
 		    if (piece.getPieceType() == PieceType.PAWN) {
 			if (piece.getPieceSide() == Side.WHITE) {
@@ -216,8 +219,6 @@ public class EvaluationTuner {
 			    hasBlackPawn = true;
 			}
 		    }
-		} catch (final IllegalArgumentException e) {
-		    // Invalid square, skip
 		}
 	    }
 
@@ -433,8 +434,28 @@ public class EvaluationTuner {
     }
 
     private static boolean hasManyCaptureOptions(final Board board) {
-	return board.legalMoves().stream().mapToInt(move -> board.getPiece(move.getTo()) != Piece.NONE ? 1 : 0)
-		.sum() > 3;
+	// Use bitboard-based approach to count capture possibilities
+	// without generating the full legal move list
+	final var side = board.getSideToMove();
+	final var opponentSide = side.flip();
+	var captureCount = 0;
+
+	// Iterate over squares occupied by enemy pieces and check if attacked
+	for (final var square : Square.values()) {
+	    if (square == Square.NONE) {
+		continue;
+	    }
+	    final var piece = board.getPiece(square);
+	    // Check if this enemy piece is attacked by our side
+	    if ((piece != Piece.NONE && piece.getPieceSide() == opponentSide)
+		    && (board.squareAttackedBy(square, side) != 0L)) {
+		captureCount++;
+		if (captureCount > 3) {
+		    return true; // Early exit
+		}
+	    }
+	}
+	return false;
     }
 
     /**

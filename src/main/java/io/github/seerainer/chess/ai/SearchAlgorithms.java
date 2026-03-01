@@ -7,20 +7,22 @@ import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.Square;
 
 import io.github.seerainer.chess.ai.search.OptimizedQuiescenceSearch;
+import io.github.seerainer.chess.config.ChessConfig;
 
 /**
  * Core search algorithms for chess AI including minimax, PVS, and quiescence
  * search
  */
 public class SearchAlgorithms {
-    private static final int QUIESCENCE_MAX_DEPTH = 8;
-    private static final int NULL_MOVE_REDUCTION = 3;
-    private static final int NULL_MOVE_MIN_DEPTH = 3;
-    private static final int REVERSE_FUTILITY_MARGIN = 1200; // Increased from 600
-    private static final int RAZORING_MARGIN = 800; // Increased from 400
-    private static final int MAX_REVERSE_FUTILITY_DEPTH = 3; // Reduced from 8
-    private static final int MAX_RAZORING_DEPTH = 2; // Reduced from 4
-    private static final int MAX_PROBCUT_DEPTH = 3; // Reduced from 5
+    private static final int QUIESCENCE_MAX_DEPTH = ChessConfig.Search.QUIESCENCE_MAX_DEPTH;
+    private static final int NULL_MOVE_REDUCTION = ChessConfig.Search.NULL_MOVE_REDUCTION;
+    private static final int NULL_MOVE_MIN_DEPTH = ChessConfig.Search.NULL_MOVE_MIN_DEPTH;
+    private static final int REVERSE_FUTILITY_MARGIN = 1200;
+    private static final int RAZORING_MARGIN = 800;
+    private static final int MAX_REVERSE_FUTILITY_DEPTH = 3;
+    private static final int MAX_RAZORING_DEPTH = ChessConfig.Search.RAZORING_MAX_DEPTH;
+    private static final int MAX_PROBCUT_DEPTH = 3; // Depth reduction for ProbCut verification search
+    private static final int PROBCUT_MARGIN = 200; // Score margin for ProbCut threshold
 
     // Node type constants
     private static final int NODE_EXACT = 0;
@@ -30,7 +32,7 @@ public class SearchAlgorithms {
     private final SearchStatistics statistics;
     private final TimeManager timeManager;
     private Side aiSide;
-    private boolean timeUp;
+    private volatile boolean timeUp;
 
     public SearchAlgorithms(final TranspositionTable transpositionTable, final SearchStatistics statistics,
 	    final TimeManager timeManager) {
@@ -63,9 +65,26 @@ public class SearchAlgorithms {
     }
 
     // Simple placeholder implementations for missing methods
-    private static boolean tryProbCut() {
-	// Simplified ProbCut - would need full implementation
-	return false;
+    /**
+     * ProbCut: If a reduced-depth zero-window search around beta + margin returns a
+     * score >= beta + margin, the full-depth search is very likely to also exceed
+     * beta, so we can prune this node.
+     *
+     * @param board The current board position
+     * @param depth The current search depth
+     * @param beta  The current beta bound
+     * @return true if the position can be pruned (score likely >= beta)
+     */
+    private boolean tryProbCut(final Board board, final int depth, final int beta) {
+	final var probCutBeta = beta + PROBCUT_MARGIN;
+	final var reducedDepth = depth - MAX_PROBCUT_DEPTH;
+	if (reducedDepth <= 0) {
+	    return false;
+	}
+
+	// Do a reduced-depth zero-window search
+	final var score = minimax(board, reducedDepth, probCutBeta - 1, probCutBeta, true, false);
+	return score >= probCutBeta;
     }
 
     private int attemptNullMovePruning(final Board board, final int depth, final int beta, final boolean maximizing) {
@@ -92,6 +111,8 @@ public class SearchAlgorithms {
      */
     public int minimax(final Board board, final int depth, final int alpha, final int beta, final boolean maximizing,
 	    final boolean nullMoveAllowed) {
+	statistics.incrementNodes();
+
 	if (isTimeUp()) {
 	    return PositionEvaluator.evaluateBoard(board, aiSide);
 	}
@@ -132,10 +153,8 @@ public class SearchAlgorithms {
 	    }
 	}
 
-	final var condition = depth >= 4 && depth <= MAX_PROBCUT_DEPTH && !board.isKingAttacked()
-		&& Math.abs(beta) < 25000 && tryProbCut();
-	// ProbCut
-	if (condition) {
+	// ProbCut — requires sufficient depth for a meaningful reduced-depth search
+	if (depth >= 5 && !board.isKingAttacked() && Math.abs(beta) < 25000 && tryProbCut(board, depth, beta)) {
 	    statistics.incrementProbcutPrunes();
 	    return beta;
 	}
@@ -182,6 +201,8 @@ public class SearchAlgorithms {
      */
     public int pvSearch(final Board board, final int depth, final int alpha, final int beta, final boolean isPVNode,
 	    final boolean nullMoveAllowed) {
+	statistics.incrementNodes();
+
 	if (isTimeUp()) {
 	    return PositionEvaluator.evaluateBoard(board, aiSide);
 	}
@@ -251,13 +272,18 @@ public class SearchAlgorithms {
 	    return 0;
 	}
 
+	// FIXED: Order moves using MoveOrdering for better alpha-beta cutoffs
+	final var zobristKey = ZobristHashing.calculateZobristHash(board);
+	final var ttEntry = transpositionTable.get(zobristKey);
+	final var orderedMoves = MoveOrdering.orderMovesAdvanced(board, legalMoves, depth, ttEntry);
+
 	// Initialize best score based on whether we're maximizing or minimizing
 	var bestScore = maximizing ? Integer.MIN_VALUE : Integer.MAX_VALUE;
 	var currentAlpha = alpha;
 	var currentBeta = beta;
 
-	// Try each legal move
-	for (final var move : legalMoves) {
+	// Try each legal move in order
+	for (final var move : orderedMoves) {
 	    // Make the move
 	    board.doMove(move);
 
@@ -301,13 +327,18 @@ public class SearchAlgorithms {
 	    return board.isKingAttacked() ? -20000 + depth : 0;
 	}
 
+	// FIXED: Order moves using MoveOrdering for better alpha-beta cutoffs
+	final var zobristKey = ZobristHashing.calculateZobristHash(board);
+	final var ttEntry = transpositionTable.get(zobristKey);
+	final var orderedMoves = MoveOrdering.orderMovesAdvanced(board, legalMoves, depth, ttEntry);
+
 	// Initialize search values
 	var bestScore = Integer.MIN_VALUE;
 	var currentAlpha = alpha;
 	var firstMove = true;
 
-	// Try each legal move
-	for (final var move : legalMoves) {
+	// Try each legal move in order
+	for (final var move : orderedMoves) {
 	    // Make the move
 	    board.doMove(move);
 
@@ -359,6 +390,13 @@ public class SearchAlgorithms {
 
     public void setTimeUp(final boolean timeUp) {
 	this.timeUp = timeUp;
+    }
+
+    /**
+     * Check if time is up (public accessor for use by search engines).
+     */
+    public boolean checkTimeUp() {
+	return isTimeUp();
     }
 
     // Additional helper methods would be implemented here...

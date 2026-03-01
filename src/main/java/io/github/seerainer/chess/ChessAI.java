@@ -1,8 +1,6 @@
 package io.github.seerainer.chess;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import com.github.bhlangonijr.chesslib.Board;
@@ -42,17 +40,16 @@ public class ChessAI {
     private final ParallelSearchEngine parallelSearchEngine;
     private final TournamentSearchEngine tournamentSearchEngine;
 
-    private final Map<String, Move> bestMoveTable;
-
     // AI state
     private Side aiSide;
     private volatile boolean timeUp;
     private volatile boolean searchCancelled;
 
     // NEW: Performance tracking
-    private final long totalNodesSearched;
+    private long totalNodesSearched;
     private long totalSearchTime;
     private int lastSearchDepth;
+    private int lastRootSearchScore;
 
     public ChessAI() {
 	this.transpositionTable = new TranspositionTable(ChessConfig.AI.TRANSPOSITION_TABLE_SIZE);
@@ -61,7 +58,6 @@ public class ChessAI {
 	this.searchStatistics = new SearchStatistics();
 	this.searchAlgorithms = new SearchAlgorithms(transpositionTable, searchStatistics, timeManager);
 	this.resourceManager = new ResourceManager();
-	this.bestMoveTable = new HashMap<>();
 
 	// Initialize advanced search engines
 	this.advancedSearchEngine = new AdvancedSearchEngine(searchAlgorithms);
@@ -214,14 +210,10 @@ public class ChessAI {
 	    return;
 	}
 
-	// NEW: Suggest GC before clearing to reclaim memory efficiently
-	System.gc();
-
 	transpositionTable.clear();
-	bestMoveTable.clear();
 
 	if (ChessConfig.Debug.ENABLE_DEBUG_LOGGING) {
-	    System.out.println("Cleaned up transposition table and best move cache");
+	    System.out.println("Cleaned up transposition table");
 	}
     }
 
@@ -237,15 +229,15 @@ public class ChessAI {
 	lastSearchDepth = 0;
 
 	for (var depth = 1; depth <= maxDepth && !timeUp && !searchCancelled; depth++) {
+	    // NEW: Age history tables periodically to prevent overflow
+	    MoveOrdering.ageHistoryTables();
+
 	    final var result = searchAtDepth(board, depth);
 
 	    if (result != null && !timeManager.isTimeUp() && !searchCancelled) {
 		bestMove = result;
 		lastSearchDepth = depth;
 		lastEngineUsed = selectSearchEngine(board, depth, legalMoves);
-
-		// NEW: Update best move table for next search
-		bestMoveTable.put(board.getFen(), bestMove);
 	    }
 
 	    // NEW: Early exit if we found a mate
@@ -379,6 +371,9 @@ public class ChessAI {
 	    break;
 	}
 
+	// Store root search score for aspiration window detection
+	lastRootSearchScore = bestScore;
+
 	return bestMove;
     }
 
@@ -435,6 +430,7 @@ public class ChessAI {
 	final var endTime = System.currentTimeMillis();
 	final var searchTime = endTime - startTime;
 	totalSearchTime += searchTime;
+	totalNodesSearched += searchStatistics.getNodesSearched();
 
 	if (ChessConfig.Debug.ENABLE_PERFORMANCE_MONITORING) {
 	    System.out.println(new StringBuilder().append("Search completed in ").append(searchTime)
@@ -482,8 +478,9 @@ public class ChessAI {
     /**
      * Enhanced search statistics logging
      */
+    @SuppressWarnings("unused")
     private void logEnhancedSearchStatistics(final Move bestMove, final SearchEngineType engineUsed) {
-	if (bestMove == null) {
+	if (bestMove == null || !ChessConfig.Debug.ENABLE_DEBUG_LOGGING) {
 	    return;
 	}
 
@@ -537,49 +534,65 @@ public class ChessAI {
 	    return null;
 	}
 
-	// Use aspiration windows for deeper searches
+	// Use full window for shallow searches
 	if (depth < ChessConfig.AI.ASPIRATION_MIN_DEPTH) {
 	    final var result = findBestMoveAtDepth(board, depth, Integer.MIN_VALUE + 1, Integer.MAX_VALUE - 1,
 		    legalMoves);
-
-	    // Verify board state hasn't been corrupted
-	    if (!board.getFen().equals(initialFen)) {
-		System.err.println("WARNING: Board state corrupted during search!");
-		System.err.println("Initial: " + initialFen);
-		System.err.println("Final: " + board.getFen());
-		// Try to restore the board state
-		board.loadFromFen(initialFen);
-	    }
-
+	    verifyBoardState(board, initialFen, "shallow search");
 	    return result;
 	}
 
+	// Aspiration window search with progressive widening
 	final var window = calculateAspirationWindow(board);
-	final var result = findBestMoveAtDepth(board, depth, window[0], window[1], legalMoves);
+	var alphaWindow = window[0];
+	var betaWindow = window[1];
+	var delta = ChessConfig.AI.ASPIRATION_WINDOW_SIZE;
+	Move result = null;
 
-	// Verify board state hasn't been corrupted
-	if (!board.getFen().equals(initialFen)) {
-	    System.err.println("WARNING: Board state corrupted during aspiration window search!");
-	    System.err.println("Initial: " + initialFen);
-	    System.err.println("Final: " + board.getFen());
-	    // Try to restore the board state
-	    board.loadFromFen(initialFen);
+	for (var attempt = 0; attempt < 3; attempt++) {
+	    result = findBestMoveAtDepth(board, depth, alphaWindow, betaWindow, legalMoves);
+	    verifyBoardState(board, initialFen, "aspiration attempt " + attempt);
+
+	    if (result == null || timeUp || searchCancelled) {
+		break;
+	    }
+
+	    // Check for fail-low or fail-high
+	    if (lastRootSearchScore <= alphaWindow) {
+		// Fail-low: widen alpha
+		delta *= 4;
+		alphaWindow = lastRootSearchScore - delta;
+	    } else if (lastRootSearchScore >= betaWindow) {
+		// Fail-high: widen beta
+		delta *= 4;
+		betaWindow = lastRootSearchScore + delta;
+	    } else {
+		// Score is within window — search succeeded
+		return result;
+	    }
 	}
 
-	// If search fails, research with full window
-	final var fallbackResult = result != null ? result
-		: findBestMoveAtDepth(board, depth, Integer.MIN_VALUE + 1, Integer.MAX_VALUE - 1, legalMoves);
-
-	// Final verification
-	if (!board.getFen().equals(initialFen)) {
-	    System.err.println("WARNING: Board state corrupted during fallback search!");
-	    System.err.println("Initial: " + initialFen);
-	    System.err.println("Final: " + board.getFen());
-	    // Try to restore the board state
-	    board.loadFromFen(initialFen);
+	// All aspiration attempts exhausted or failed — research with full window
+	if (result == null || lastRootSearchScore <= alphaWindow || lastRootSearchScore >= betaWindow) {
+	    result = findBestMoveAtDepth(board, depth, Integer.MIN_VALUE + 1, Integer.MAX_VALUE - 1, legalMoves);
+	    verifyBoardState(board, initialFen, "full window fallback");
 	}
 
-	return fallbackResult;
+	return result;
+    }
+
+    /**
+     * Verify board state has not been corrupted during search.
+     */
+    private static void verifyBoardState(final Board board, final String expectedFen, final String context) {
+	if (board.getFen().equals(expectedFen)) {
+	    return;
+	}
+	System.err.println(new StringBuilder().append("WARNING: Board state corrupted during ").append(context)
+		.append("!").toString());
+	System.err.println("Expected: " + expectedFen);
+	System.err.println("Actual: " + board.getFen());
+	board.loadFromFen(expectedFen);
     }
 
     /**

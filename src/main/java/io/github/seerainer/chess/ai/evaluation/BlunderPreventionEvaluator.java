@@ -202,7 +202,8 @@ public class BlunderPreventionEvaluator implements EvaluationComponent {
 
     @Override
     public double getWeight(final EvaluationContext context) {
-	// Maximum weight to prevent blunders
-	return 10.0;
+	// Moderate weight — blunder prevention is important but should not drown
+	// material
+	return 2.0;
     }
 }

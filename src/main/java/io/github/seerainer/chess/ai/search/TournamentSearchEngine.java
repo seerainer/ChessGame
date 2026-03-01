@@ -10,6 +10,8 @@ import com.github.bhlangonijr.chesslib.move.Move;
 
 import io.github.seerainer.chess.ai.TournamentMoveOrdering;
 import io.github.seerainer.chess.ai.evaluation.EvaluationOrchestrator;
+import io.github.seerainer.chess.ai.evaluation.MaterialEvaluator;
+import io.github.seerainer.chess.config.ChessConfig;
 
 /**
  * COMPLETE REWRITE: Tournament-strength search engine Implements proper minimax
@@ -37,18 +39,11 @@ public class TournamentSearchEngine {
     }
 
     /**
-     * Get piece value for tactical calculations
+     * Get piece value for tactical calculations. Delegates to the canonical single
+     * source of truth in MaterialEvaluator.
      */
     private static int getPieceValue(final Piece piece) {
-	return switch (piece.getPieceType()) {
-	case PAWN -> 100;
-	case KNIGHT -> 320;
-	case BISHOP -> 330;
-	case ROOK -> 500;
-	case QUEEN -> 900;
-	case KING -> 20000;
-	default -> 0;
-	};
+	return MaterialEvaluator.getPieceValue(piece);
     }
 
     /**
@@ -156,7 +151,9 @@ public class TournamentSearchEngine {
 	    }
 	}
 
-	System.out.printf("Quick evaluation: chosen %s (score: %d)%n", bestMove, bestScore);
+	if (ChessConfig.Debug.ENABLE_DEBUG_LOGGING) {
+	    System.out.printf("Quick evaluation: chosen %s (score: %d)%n", bestMove, bestScore);
+	}
 	return bestMove;
     }
 
@@ -174,7 +171,9 @@ public class TournamentSearchEngine {
 
 	// Quick decision for simple positions
 	if (moves.size() <= 5) {
-	    System.out.println("=== Simple position detected, quick evaluation ===");
+	    if (ChessConfig.Debug.ENABLE_DEBUG_LOGGING) {
+		System.out.println("=== Simple position detected, quick evaluation ===");
+	    }
 	    return quickEvaluateSimplePosition(board, moves);
 	}
 
@@ -186,13 +185,17 @@ public class TournamentSearchEngine {
 	var alpha = Integer.MIN_VALUE;
 	final var beta = Integer.MAX_VALUE;
 
-	System.out.println("=== Tournament Search with Tactical Analysis ===");
+	if (ChessConfig.Debug.ENABLE_DEBUG_LOGGING) {
+	    System.out.println("=== Tournament Search with Tactical Analysis ===");
+	}
 
 	// TACTICAL SAFETY CHECK: First eliminate moves that hang pieces
 	final var safeMoves = filterOutBlunders(board, orderedMoves);
 	final var movesToEvaluate = safeMoves.isEmpty() ? orderedMoves : safeMoves;
 
-	System.out.printf("Filtered %d moves to %d safe moves%n", orderedMoves.size(), movesToEvaluate.size());
+	if (ChessConfig.Debug.ENABLE_DEBUG_LOGGING) {
+	    System.out.printf("Filtered %d moves to %d safe moves%n", orderedMoves.size(), movesToEvaluate.size());
+	}
 
 	// Determine time limit based on position complexity
 	final var isTactical = isPositionTactical(board);
@@ -211,7 +214,9 @@ public class TournamentSearchEngine {
 
 	    board.undoMove();
 
-	    System.out.printf("Move %s: score = %d (depth %d)%n", move.toString(), score, searchDepth);
+	    if (ChessConfig.Debug.ENABLE_DEBUG_LOGGING) {
+		System.out.printf("Move %s: score = %d (depth %d)%n", move.toString(), score, searchDepth);
+	    }
 
 	    if (score > bestScore) {
 		bestScore = score;
@@ -221,12 +226,16 @@ public class TournamentSearchEngine {
 
 	    // Optimized time check - exit early if time is up
 	    if (System.currentTimeMillis() - startTime > timeLimit) {
-		System.out.printf("Time limit (%dms) reached, returning best move found%n", timeLimit);
+		if (ChessConfig.Debug.ENABLE_DEBUG_LOGGING) {
+		    System.out.printf("Time limit (%dms) reached, returning best move found%n", timeLimit);
+		}
 		break;
 	    }
 	}
 
-	System.out.printf("=== Best move: %s (score: %d, nodes: %d) ===%n", bestMove, bestScore, nodesSearched);
+	if (ChessConfig.Debug.ENABLE_DEBUG_LOGGING) {
+	    System.out.printf("=== Best move: %s (score: %d, nodes: %d) ===%n", bestMove, bestScore, nodesSearched);
+	}
 
 	return bestMove;
     }
@@ -252,7 +261,7 @@ public class TournamentSearchEngine {
 	// Checkmate and stalemate
 	final var moves = board.legalMoves();
 	if (moves.isEmpty()) {
-	    return board.isKingAttacked() ? -20000 + (6 - depth) : 0;
+	    return board.isKingAttacked() ? -ChessConfig.Evaluation.PIECE_VALUES_KING + (6 - depth) : 0;
 	}
 
 	// Order moves for better pruning
@@ -279,7 +288,8 @@ public class TournamentSearchEngine {
 	    }
 
 	    // Time check
-	    if (System.currentTimeMillis() - startTime > 4500) { // Leave time for move selection
+	    if (System.currentTimeMillis() - startTime > ChessConfig.AI.DEFAULT_THINK_TIME_MS - 500) { // Leave time for
+												       // move selection
 		break;
 	    }
 	}

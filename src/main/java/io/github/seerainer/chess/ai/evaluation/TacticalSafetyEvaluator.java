@@ -13,89 +13,6 @@ import io.github.seerainer.chess.ai.utils.ChessUtils;
  */
 public class TacticalSafetyEvaluator implements EvaluationComponent {
 
-    private static boolean canBishopAttack(final Square from, final Square to) {
-	final var fromFile = from.getFile().ordinal();
-	final var fromRank = from.getRank().ordinal();
-	final var toFile = to.getFile().ordinal();
-	final var toRank = to.getRank().ordinal();
-
-	final var fileDiff = Math.abs(fromFile - toFile);
-	final var rankDiff = Math.abs(fromRank - toRank);
-
-	return (fileDiff == rankDiff);
-    }
-
-    private static boolean canKingAttack(final Square from, final Square to) {
-	final var fromFile = from.getFile().ordinal();
-	final var fromRank = from.getRank().ordinal();
-	final var toFile = to.getFile().ordinal();
-	final var toRank = to.getRank().ordinal();
-
-	final var fileDiff = Math.abs(fromFile - toFile);
-	final var rankDiff = Math.abs(fromRank - toRank);
-
-	return fileDiff <= 1 && rankDiff <= 1 && (fileDiff != 0 || rankDiff != 0);
-    }
-
-    private static boolean canKnightAttack(final Square from, final Square to) {
-	final var fromFile = from.getFile().ordinal();
-	final var fromRank = from.getRank().ordinal();
-	final var toFile = to.getFile().ordinal();
-	final var toRank = to.getRank().ordinal();
-
-	final var fileDiff = Math.abs(fromFile - toFile);
-	final var rankDiff = Math.abs(fromRank - toRank);
-
-	return (fileDiff == 2 && rankDiff == 1) || (fileDiff == 1 && rankDiff == 2);
-    }
-
-    private static boolean canPawnAttack(final Square from, final Square to, final Side side) {
-	final var fromFile = from.getFile().ordinal();
-	final var fromRank = from.getRank().ordinal();
-	final var toFile = to.getFile().ordinal();
-	final var toRank = to.getRank().ordinal();
-
-	final var fileDiff = Math.abs(fromFile - toFile);
-	final var rankDiff = toRank - fromRank;
-
-	return side == Side.WHITE ? fileDiff == 1 && rankDiff == 1 : fileDiff == 1 && rankDiff == -1;
-    }
-
-    private static boolean canPieceAttackSquare(final Piece piece, final Square from, final Square to) {
-	// Simplified piece attack detection
-	// In a full implementation, this would check actual piece movement rules
-	final var pieceType = piece.getPieceType();
-
-	return switch (pieceType) {
-	case PAWN -> canPawnAttack(from, to, piece.getPieceSide());
-	case KNIGHT -> canKnightAttack(from, to);
-	case BISHOP -> canBishopAttack(from, to);
-	case ROOK -> canRookAttack(from, to);
-	case QUEEN -> canQueenAttack(from, to);
-	case KING -> canKingAttack(from, to);
-	default -> false;
-	};
-    }
-
-    private static boolean canQueenAttack(final Square from, final Square to) {
-	return canBishopAttack(from, to) || canRookAttack(from, to);
-    }
-
-    private static boolean canRookAttack(final Square from, final Square to) {
-	final var fromFile = from.getFile().ordinal();
-	final var fromRank = from.getRank().ordinal();
-	final var toFile = to.getFile().ordinal();
-	final var toRank = to.getRank().ordinal();
-
-	// Must be on same rank or file
-	if (fromFile != toFile && fromRank != toRank) {
-	    return false;
-	}
-
-	// Check for pieces blocking the path (simplified)
-	return true; // For now, assume path is clear
-    }
-
     private static int evaluateDiscoveredAttacks(final Board board, final Side evaluatingSide) {
 	var score = 0;
 
@@ -254,9 +171,9 @@ public class TacticalSafetyEvaluator implements EvaluationComponent {
 		continue;
 	    }
 
-	    // Check if this piece can attack the target square
-	    // This is a simplified check - a full implementation would verify legal moves
-	    if (canPieceAttackSquare(piece, attackerSquare, square)) {
+	    // Check if this piece can attack the target square (using board-aware check for
+	    // blocking)
+	    if (ChessUtils.canPieceAttackSquare(board, attackerSquare, square)) {
 		final var pieceValue = ChessUtils.PIECE_VALUES[piece.getPieceType().ordinal()];
 		lowestValue = Math.min(lowestValue, pieceValue);
 	    }
@@ -280,7 +197,7 @@ public class TacticalSafetyEvaluator implements EvaluationComponent {
 
     @Override
     public double getWeight(final EvaluationContext context) {
-	// Tactical safety is ALWAYS critical
-	return 5.0; // Very high weight to prevent blunders
+	// Moderate weight — tactical safety matters but should not drown material
+	return 2.0;
     }
 }

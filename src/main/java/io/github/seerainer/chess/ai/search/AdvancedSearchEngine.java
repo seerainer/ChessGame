@@ -20,6 +20,9 @@ public class AdvancedSearchEngine {
 
     private final SearchAlgorithms searchAlgorithms;
 
+    // The side the AI is playing for - used in terminal evaluations
+    private Side aiSide = Side.WHITE;
+
     // Search statistics
     private int nodesSearched;
 
@@ -82,11 +85,11 @@ public class AdvancedSearchEngine {
     }
 
     /**
-     * Check if a move is important (shouldn't be reduced or pruned)
+     * Check if a move is important (shouldn't be reduced or pruned). Uses static
+     * heuristics only — no doMove/undoMove.
      */
     private static boolean isImportantMove(final Board board, final Move move) {
-	// Captures, promotions, checks, and castling are important
-	// Promotion or Capture
+	// Captures and promotions are always important
 	if ((move.getPromotion() != Piece.NONE) || (board.getPiece(move.getTo()) != Piece.NONE)) {
 	    return true;
 	}
@@ -96,25 +99,30 @@ public class AdvancedSearchEngine {
 		&& Math.abs(move.getFrom().getFile().ordinal() - move.getTo().getFile().ordinal()) == 2) {
 	    return true;
 	}
-	// Check if move delivers check
-	try {
-	    board.doMove(move);
-	    final var givesCheck = board.isKingAttacked();
-	    board.undoMove();
-	    if (givesCheck) {
-		return true;
-	    }
-	} catch (final Exception e) {
-	    // If there's an error, assume the move is not important
-	    System.err.println("Error validating move " + move + " for check detection: " + e.getMessage());
-	    try {
-		board.undoMove();
-	    } catch (final Exception ex) {
-		// Board might be in inconsistent state after failed undo
-		System.err.println("Error undoing move " + move + " after failed validation: " + ex.getMessage());
-	    }
+	// Static check detection: if our piece lands on a square that attacks the enemy
+	// king,
+	// this is likely a checking move (not 100% accurate for discovered checks but
+	// cheap)
+	final var enemySide = piece.getPieceSide().flip();
+	final var enemyKingSquare = findKingSquare(board, enemySide);
+	if (enemyKingSquare != Square.NONE && io.github.seerainer.chess.ai.utils.ChessUtils.canPieceAttackSquare(piece,
+		move.getTo(), enemyKingSquare)) {
+	    return true;
 	}
 	return false;
+    }
+
+    /**
+     * Find the king square for a given side.
+     */
+    private static Square findKingSquare(final Board board, final Side side) {
+	final var kingPiece = side == Side.WHITE ? Piece.WHITE_KING : Piece.BLACK_KING;
+	for (final var square : Square.values()) {
+	    if (square != Square.NONE && board.getPiece(square) == kingPiece) {
+		return square;
+	    }
+	}
+	return Square.NONE;
     }
 
     /**
@@ -181,6 +189,7 @@ public class AdvancedSearchEngine {
      */
     public Move getBestMove(final Board board, final int depth, final int alpha, final int beta) {
 	resetStatistics();
+	this.aiSide = board.getSideToMove();
 
 	final List<Move> moves;
 	try {
@@ -206,9 +215,8 @@ public class AdvancedSearchEngine {
 	for (var i = 0; i < maxMovesToEvaluate; i++) {
 	    final var move = moves.get(i);
 
-	    // Safety check for excessive computation
-	    if (nodesSearched > 50000) {
-		System.out.println("Advanced search: Node limit reached, returning best move found");
+	    // Check time before each move evaluation
+	    if (searchAlgorithms.checkTimeUp()) {
 		break;
 	    }
 
@@ -360,8 +368,9 @@ public class AdvancedSearchEngine {
 
 	// Check for terminal conditions first
 	// Prevent excessive search depth
-	if ((depth <= 0) || board.isDraw() || board.isMated() || (nodesSearched > 10000)) { // Reduced from 100000
-	    return PositionEvaluator.evaluateBoard(board, Side.WHITE);
+	// Check time limit to avoid runaway searches
+	if ((depth <= 0) || board.isDraw() || board.isMated() || searchAlgorithms.checkTimeUp()) {
+	    return PositionEvaluator.evaluateBoard(board, aiSide);
 	}
 
 	// Null move pruning
@@ -389,7 +398,7 @@ public class AdvancedSearchEngine {
 	    System.err.println(
 		    "Error generating legal moves in AdvancedSearchEngine.search for position: " + board.getFen());
 	    System.err.println("Error: " + e.getMessage());
-	    return PositionEvaluator.evaluateBoard(board, Side.WHITE);
+	    return PositionEvaluator.evaluateBoard(board, aiSide);
 	}
 
 	if (!moves.isEmpty()) {

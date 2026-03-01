@@ -1,5 +1,7 @@
 package io.github.seerainer.chess.ai;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Side;
 
@@ -21,9 +23,10 @@ public class PositionEvaluator {
 	    ? new EvaluationCache(ChessConfig.Performance.EVALUATION_CACHE_SIZE)
 	    : null;
 
-    // Performance monitoring - now using configuration values
-    private static long evaluationCount = 0;
-    private static long cacheHits = 0;
+    // Performance monitoring - now using configuration values (atomic for
+    // thread-safety in parallel search)
+    private static final AtomicLong evaluationCount = new AtomicLong(0);
+    private static final AtomicLong cacheHits = new AtomicLong(0);
     private static final boolean ENABLE_PERFORMANCE_MONITORING = ChessConfig.Debug.ENABLE_PERFORMANCE_MONITORING;
 
     // Private constructor to prevent instantiation
@@ -39,8 +42,8 @@ public class PositionEvaluator {
 	    evaluationCache.clear();
 	}
 	// Reset performance counters
-	evaluationCount = 0;
-	cacheHits = 0;
+	evaluationCount.set(0);
+	cacheHits.set(0);
     }
 
     /**
@@ -48,10 +51,10 @@ public class PositionEvaluator {
      */
     public static int evaluateBoard(final Board board, final Side sideToMove) {
 	if (ENABLE_PERFORMANCE_MONITORING) {
-	    evaluationCount++;
+	    final var count = evaluationCount.incrementAndGet();
 
 	    // Check if we should log performance stats (using statistics interval)
-	    if (evaluationCount % ChessConfig.Debug.STATISTICS_REPORT_INTERVAL == 0) {
+	    if (count % ChessConfig.Debug.STATISTICS_REPORT_INTERVAL == 0) {
 		logPerformanceStats();
 	    }
 	}
@@ -61,7 +64,7 @@ public class PositionEvaluator {
 	    final var cachedValue = evaluationCache.get(board.getIncrementalHashKey());
 	    if (cachedValue != null) {
 		if (ENABLE_PERFORMANCE_MONITORING) {
-		    cacheHits++;
+		    cacheHits.incrementAndGet();
 		}
 		return cachedValue;
 	    }
@@ -86,8 +89,10 @@ public class PositionEvaluator {
 	    return "Evaluation cache disabled";
 	}
 
-	final var hitRate = evaluationCount > 0 ? (double) cacheHits / evaluationCount * 100 : 0;
-	return "Evaluation Cache: %.1f%% hit rate (%d/%d), size: %d".formatted(hitRate, cacheHits, evaluationCount,
+	final var total = evaluationCount.get();
+	final var hits = cacheHits.get();
+	final var hitRate = total > 0 ? (double) hits / total * 100 : 0;
+	return "Evaluation Cache: %.1f%% hit rate (%d/%d), size: %d".formatted(hitRate, hits, total,
 		evaluationCache.size());
     }
 
@@ -119,9 +124,11 @@ public class PositionEvaluator {
 	if (!ENABLE_PERFORMANCE_MONITORING) {
 	    return;
 	}
-	final var hitRate = evaluationCount > 0 ? (double) cacheHits / evaluationCount * 100 : 0;
-	System.out.println(new StringBuilder().append("Evaluation Performance: ").append(evaluationCount)
-		.append(" evaluations, ").append("%.1f".formatted(hitRate)).append("% cache hit rate").toString());
+	final var total = evaluationCount.get();
+	final var hits = cacheHits.get();
+	final var hitRate = total > 0 ? (double) hits / total * 100 : 0;
+	System.out.println(new StringBuilder().append("Evaluation Performance: ").append(total).append(" evaluations, ")
+		.append("%.1f".formatted(hitRate)).append("% cache hit rate").toString());
     }
 
     // Legacy compatibility methods - delegating to appropriate evaluators

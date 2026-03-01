@@ -159,27 +159,26 @@ public class TacticalPatternEvaluator implements EvaluationComponent {
     }
 
     /**
-     * Check for discovered attack moves from a specific square
+     * Check for discovered attack moves from a specific square. Uses a pre-computed
+     * legal move list when available.
      */
-    private static int checkDiscoveredAttackMoves(final Board board, final Square fromSquare) {
+    private static int checkDiscoveredAttackMoves(final Board board, final Square fromSquare, final Side side,
+	    final List<Move> legalMoves) {
 	var score = 0;
 
+	// Use provided legal moves or generate if null
+	final var moves = (legalMoves != null) ? legalMoves : board.legalMoves();
+
 	// For each legal move from this square
-	for (final var move : board.legalMoves()) {
+	for (final var move : moves) {
 	    if (move.getFrom() != fromSquare) {
 		continue;
 	    }
 
-	    // Make the move temporarily
-	    board.doMove(move);
-
 	    // Check if this creates a discovered attack
-	    if (hasDiscoveredAttack()) {
+	    if (hasDiscoveredAttack(board, move, side)) {
 		score += DISCOVERED_ATTACK_BONUS;
 	    }
-
-	    // Undo the move
-	    board.undoMove();
 	}
 
 	return score;
@@ -556,9 +555,10 @@ public class TacticalPatternEvaluator implements EvaluationComponent {
     }
 
     /**
-     * Evaluate discovered attack patterns
+     * Evaluate discovered attack patterns. Accepts a pre-computed legal move list
+     * to avoid redundant generation.
      */
-    private static int evaluateDiscoveredAttacks(final Board board, final Side side) {
+    private static int evaluateDiscoveredAttacks(final Board board, final Side side, final List<Move> legalMoves) {
 	var score = 0;
 
 	// Check for pieces that can move to create discovered attacks
@@ -573,7 +573,7 @@ public class TacticalPatternEvaluator implements EvaluationComponent {
 	    }
 
 	    // Check if moving this piece would create a discovered attack
-	    score += checkDiscoveredAttackMoves(board, square);
+	    score += checkDiscoveredAttackMoves(board, square, side, legalMoves);
 	}
 
 	return score;
@@ -654,8 +654,10 @@ public class TacticalPatternEvaluator implements EvaluationComponent {
 	    }
 
 	    // Check if this knight move creates a fork
-	    final var knightMove = new Move(knightSquare, moveSquare);
-	    if (board.legalMoves().contains(knightMove)) {
+	    // Use static check: destination must be empty or hold an enemy piece
+	    // (knight geometry is already verified by the loop offsets)
+	    final var targetPiece = board.getPiece(moveSquare);
+	    if (targetPiece == Piece.NONE || targetPiece.getPieceSide() != side) {
 		final var targets = countAttackedPieces(board, moveSquare, side.flip());
 		if (targets >= 2) {
 		    score += KNIGHT_FORK_BONUS;
@@ -854,13 +856,102 @@ public class TacticalPatternEvaluator implements EvaluationComponent {
     }
 
     /**
-     * Check if a move creates a discovered attack
+     * Check if a move creates a discovered attack by vacating a square that opens a
+     * line from one of our sliding pieces to an enemy valuable piece. The check is
+     * done BEFORE the move is executed on the board.
+     *
+     * @param board The current board state (before the move)
+     * @param move  The move being considered
+     * @param side  The side making the move
+     * @return true if the move creates a discovered attack
      */
-    private static boolean hasDiscoveredAttack() {
-	// Check if removing the piece from originalSquare creates an attack line
-	// This is a simplified check - in a full implementation, we'd check all
-	// possible attack lines
-	return false; // Simplified for this example
+    private static boolean hasDiscoveredAttack(final Board board, final Move move, final Side side) {
+	final var vacatedSquare = move.getFrom();
+	final var vacatedFile = vacatedSquare.getFile().ordinal();
+	final var vacatedRank = vacatedSquare.getRank().ordinal();
+
+	// 8 ray directions: N, NE, E, SE, S, SW, W, NW
+	final int[][] directions = { { 0, 1 }, { 1, 1 }, { 1, 0 }, { 1, -1 }, { 0, -1 }, { -1, -1 }, { -1, 0 },
+		{ -1, 1 } };
+
+	for (final var dir : directions) {
+	    // Walk in one direction from the vacated square to find our sliding piece
+	    var foundOurSlider = false;
+	    var f = vacatedFile + dir[0];
+	    var r = vacatedRank + dir[1];
+
+	    while (f >= 0 && f <= 7 && r >= 0 && r <= 7) {
+		final var sq = getSquareFromCoordinates(r, f);
+		if (sq == Square.NONE) {
+		    break;
+		}
+
+		final var piece = board.getPiece(sq);
+		if (piece != Piece.NONE) {
+		    // Found a piece — check if it's our sliding piece aligned with this direction
+		    // Skip if this is the piece that's actually moving
+		    if ((piece.getPieceSide() == side && isSlidingPieceForDirection(piece.getPieceType(), dir))
+			    && (sq != move.getTo())) {
+			foundOurSlider = true;
+		    }
+		    break; // Stop regardless — first piece blocks the ray
+		}
+		f += dir[0];
+		r += dir[1];
+	    }
+
+	    if (!foundOurSlider) {
+		continue;
+	    }
+
+	    // Walk in the opposite direction from the vacated square to find an enemy
+	    // valuable piece
+	    f = vacatedFile - dir[0];
+	    r = vacatedRank - dir[1];
+
+	    while (f >= 0 && f <= 7 && r >= 0 && r <= 7) {
+		final var sq = getSquareFromCoordinates(r, f);
+		if (sq == Square.NONE) {
+		    break;
+		}
+
+		final var piece = board.getPiece(sq);
+		if (piece != Piece.NONE) {
+		    // Found a piece — check if it's an enemy piece worth attacking
+		    if (piece.getPieceSide() != side) {
+			final var type = piece.getPieceType();
+			if (type == PieceType.QUEEN || type == PieceType.ROOK || type == PieceType.KING) {
+			    return true; // Discovered attack on a valuable enemy piece
+			}
+		    }
+		    break; // First piece blocks the ray
+		}
+		f -= dir[0];
+		r -= dir[1];
+	    }
+	}
+
+	return false;
+    }
+
+    /**
+     * Check if a piece type can slide along the given direction. Rooks slide on
+     * files/ranks, bishops slide on diagonals, queens slide both.
+     *
+     * @param type The piece type
+     * @param dir  Direction vector [dFile, dRank]
+     * @return true if the piece can slide along this direction
+     */
+    private static boolean isSlidingPieceForDirection(final PieceType type, final int[] dir) {
+	final var isDiagonal = dir[0] != 0 && dir[1] != 0;
+	final var isStraight = dir[0] == 0 || dir[1] == 0;
+
+	return switch (type) {
+	case QUEEN -> true;
+	case ROOK -> isStraight;
+	case BISHOP -> isDiagonal;
+	default -> false;
+	};
     }
 
     /**
@@ -923,6 +1014,7 @@ public class TacticalPatternEvaluator implements EvaluationComponent {
     public int evaluate(final EvaluationContext context) {
 	final var board = context.getBoard();
 	final var side = context.getEvaluatingSide();
+	final var legalMoves = context.getLegalMoves();
 
 	var score = 0;
 
@@ -930,15 +1022,16 @@ public class TacticalPatternEvaluator implements EvaluationComponent {
 	score += evaluateForkPatterns(board, side);
 	score += evaluatePinPatterns(board, side);
 	score += evaluateSkewers(board, side);
-	score += evaluateDiscoveredAttacks(board, side);
+	score += evaluateDiscoveredAttacks(board, side, legalMoves);
 	score += evaluateDoubleAttacks(board, side);
 	score += evaluateBackRankMates(board, side);
 
-	// Subtract opponent's tactical threats
+	// Subtract opponent's tactical threats (null for legal moves since they're for
+	// the other side)
 	score -= evaluateForkPatterns(board, side.flip());
 	score -= evaluatePinPatterns(board, side.flip());
 	score -= evaluateSkewers(board, side.flip());
-	score -= evaluateDiscoveredAttacks(board, side.flip());
+	score -= evaluateDiscoveredAttacks(board, side.flip(), null);
 	score -= evaluateDoubleAttacks(board, side.flip());
 	score -= evaluateBackRankMates(board, side.flip());
 

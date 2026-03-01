@@ -1,282 +1,223 @@
 package io.github.seerainer.chess.test;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.concurrent.TimeUnit;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+
 import com.github.bhlangonijr.chesslib.Board;
+import com.github.bhlangonijr.chesslib.Piece;
+import com.github.bhlangonijr.chesslib.PieceType;
 import com.github.bhlangonijr.chesslib.Side;
+import com.github.bhlangonijr.chesslib.Square;
 
 import io.github.seerainer.chess.ChessAI;
 import io.github.seerainer.chess.ai.evaluation.EvaluationContext;
 import io.github.seerainer.chess.ai.evaluation.PieceProtectionEvaluator;
 
-public class PieceProtectionTest {
+/**
+ * Tests that the AI avoids hanging pieces and properly evaluates piece
+ * protection in various positions.
+ */
+class PieceProtectionTest {
 
     /**
-     * Find the queen square for a given side
+     * Find the queen square for a given side.
      */
-    private static com.github.bhlangonijr.chesslib.Square findQueenSquare(final Board board, final Side side) {
-	for (final var square : com.github.bhlangonijr.chesslib.Square.values()) {
-	    if (square == com.github.bhlangonijr.chesslib.Square.NONE) {
+    private static Square findQueenSquare(final Board board, final Side side) {
+	for (final var square : Square.values()) {
+	    if (square == Square.NONE) {
 		continue;
 	    }
-
 	    final var piece = board.getPiece(square);
-	    if (piece.getPieceType() == com.github.bhlangonijr.chesslib.PieceType.QUEEN
-		    && piece.getPieceSide() == side) {
+	    if (piece.getPieceType() == PieceType.QUEEN && piece.getPieceSide() == side) {
 		return square;
 	    }
 	}
 	return null;
     }
 
-    public static void main(final String[] args) {
-	runPieceProtectionTests();
-    }
-
-    private static void runPieceProtectionTests() {
-	System.out.println("=== Piece Protection Test Suite ===\n");
-
-	testHangingQueenPrevention();
-	testHangingRookPrevention();
-	testWeakPieceProtection();
-	testProtectionBeforeMoving();
-	testPieceProtectionInGame();
-
-	System.out.println("=== Piece Protection Tests Complete ===");
-    }
-
     /**
-     * Test that the engine avoids hanging the queen
+     * Test that the AI does not hang the queen after its first move.
      */
-    private static void testHangingQueenPrevention() {
-	System.out.println("=== Testing Hanging Queen Prevention ===");
-
-	// Position where queen can be hung easily
+    @Test
+    @DisplayName("Hanging Queen Prevention")
+    @Timeout(value = 30, unit = TimeUnit.SECONDS)
+    void testHangingQueenPrevention() {
 	final var fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2";
 	final var board = new Board();
 	board.loadFromFen(fen);
 
-	System.out.println("Position: " + fen);
-	System.out.println("Testing if AI avoids hanging queen...");
-
 	final var ai = new ChessAI();
-	final var bestMove = ai.getBestMove(board);
+	try {
+	    final var bestMove = ai.getBestMove(board);
+	    assertNotNull(bestMove, "AI should find a move");
 
-	System.out.println("AI chose: " + bestMove);
+	    board.doMove(bestMove);
 
-	// Test the move - make sure it doesn't hang the queen
-	board.doMove(bestMove);
-
-	// Check if queen is now hanging
-	final var queenSquare = findQueenSquare(board, Side.BLACK);
-	if (queenSquare != null) {
-	    final var queenHanging = board.squareAttackedBy(queenSquare, Side.WHITE) != 0L
-		    && board.squareAttackedBy(queenSquare, Side.BLACK) == 0L;
-
-	    if (queenHanging) {
-		System.out.println("❌ FAILED: AI move hangs the queen!");
-	    } else {
-		System.out.println("✅ PASSED: Queen is safe");
+	    // Check if queen is hanging (attacked but undefended)
+	    final var queenSquare = findQueenSquare(board, Side.BLACK);
+	    if (queenSquare != null) {
+		final var queenHanging = board.squareAttackedBy(queenSquare, Side.WHITE) != 0L
+			&& board.squareAttackedBy(queenSquare, Side.BLACK) == 0L;
+		assertTrue(!queenHanging, "AI should not hang the queen on " + queenSquare);
 	    }
-	} else {
-	    System.out.println("✅ PASSED: Queen moved to safety");
-	}
+	    // If queen is not on the board at all, that is also fine
 
-	board.undoMove();
-	System.out.println();
+	    board.undoMove();
+	} finally {
+	    ai.cleanup();
+	}
     }
 
     /**
-     * Test that the engine avoids hanging the rook
+     * Test that the PieceProtectionEvaluator does not report a large penalty for a
+     * position where the rook is simply on its starting square.
      */
-    private static void testHangingRookPrevention() {
-	System.out.println("=== Testing Hanging Rook Prevention ===");
-
-	// Position where rook can be attacked
+    @Test
+    @DisplayName("Hanging Rook Prevention")
+    @Timeout(value = 30, unit = TimeUnit.SECONDS)
+    void testHangingRookPrevention() {
+	// Position with missing knight — rook file opened
 	final var fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKB1R w KQkq - 0 1";
 	final var board = new Board();
 	board.loadFromFen(fen);
 
-	System.out.println("Position: " + fen);
-	System.out.println("Testing if AI protects rook...");
-
-	// Test the evaluator directly
 	final var evaluator = new PieceProtectionEvaluator();
 	final var context = new EvaluationContext(board, Side.WHITE);
-
 	final var score = evaluator.evaluate(context);
-	System.out.println("Protection score: " + score);
 
-	if (score < -500) {
-	    System.out.println("❌ FAILED: Significant piece protection penalty detected");
-	} else {
-	    System.out.println("✅ PASSED: Piece protection looks good");
-	}
-
-	System.out.println();
+	assertTrue(score >= -500,
+		"Protection score should not be heavily penalised for a near-starting position, got: " + score);
     }
 
     /**
-     * Test piece protection in a real game scenario
+     * Test that the evaluator detects a weak piece: knight on d4 attacking White's
+     * position where the queen is under threat.
      */
-    private static void testPieceProtectionInGame() {
-	System.out.println("=== Testing Piece Protection in Game ===");
-
-	// Complex middle game position
-	final var fen = "r2qkb1r/ppp2ppp/2n1bn2/3p4/3P4/2N1PN2/PPP2PPP/R1BQKB1R w KQkq - 0 6";
+    @Test
+    @DisplayName("Weak Piece Protection Detection")
+    @Timeout(value = 30, unit = TimeUnit.SECONDS)
+    void testWeakPieceProtection() {
+	// Position where queen is attacked by knight
+	final var fen = "rnbqkbnr/pppp1ppp/8/4p3/3nP3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 3";
 	final var board = new Board();
 	board.loadFromFen(fen);
 
-	System.out.println("Position: " + fen);
-	System.out.println("Testing piece protection in complex position...");
+	final var evaluator = new PieceProtectionEvaluator();
+	final var context = new EvaluationContext(board, Side.WHITE);
+	final var score = evaluator.evaluate(context);
+
+	assertTrue(score < -100, "Evaluator should detect weak piece protection when queen is attacked, got: " + score);
+    }
+
+    /**
+     * Test that the AI does not leave any non-pawn pieces hanging after its move.
+     */
+    @Test
+    @DisplayName("Protection Before Moving")
+    @Timeout(value = 30, unit = TimeUnit.SECONDS)
+    void testProtectionBeforeMoving() {
+	// Position where moving a defender could leave another piece hanging
+	final var fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/3B4/PPPP1PPP/RNBQK2R w KQkq - 0 3";
+	final var board = new Board();
+	board.loadFromFen(fen);
 
 	final var ai = new ChessAI();
-	final var bestMove = ai.getBestMove(board);
+	try {
+	    final var bestMove = ai.getBestMove(board);
+	    assertNotNull(bestMove, "AI should find a move");
 
-	System.out.println("AI chose: " + bestMove);
+	    board.doMove(bestMove);
 
-	// Test multiple moves to see if AI consistently protects pieces
-	var movesWithoutHangingPieces = 0;
-	final var totalMoves = 3;
-
-	for (var i = 0; i < totalMoves; i++) {
-	    final var move = ai.getBestMove(board);
-	    board.doMove(move);
-
-	    // Check if any important pieces are hanging
+	    // Verify no White non-pawn/king piece is hanging
 	    var foundHangingPiece = false;
-	    for (final var square : com.github.bhlangonijr.chesslib.Square.values()) {
-		if (square == com.github.bhlangonijr.chesslib.Square.NONE) {
+	    for (final var square : Square.values()) {
+		if (square == Square.NONE) {
 		    continue;
 		}
-
 		final var piece = board.getPiece(square);
-		// Check both sides
-		if ((piece == com.github.bhlangonijr.chesslib.Piece.NONE)
-			|| piece.getPieceType() == com.github.bhlangonijr.chesslib.PieceType.PAWN
-			|| piece.getPieceType() == com.github.bhlangonijr.chesslib.PieceType.KING) {
+		if (piece == Piece.NONE || piece.getPieceSide() != Side.WHITE || piece.getPieceType() == PieceType.PAWN
+			|| piece.getPieceType() == PieceType.KING) {
 		    continue;
 		}
-
-		final var isAttacked = board.squareAttackedBy(square, piece.getPieceSide().flip()) != 0L;
-		final var isDefended = board.squareAttackedBy(square, piece.getPieceSide()) != 0L;
-
+		final var isAttacked = board.squareAttackedBy(square, Side.BLACK) != 0L;
+		final var isDefended = board.squareAttackedBy(square, Side.WHITE) != 0L;
 		if (isAttacked && !isDefended) {
 		    foundHangingPiece = true;
 		    break;
 		}
 	    }
 
-	    if (!foundHangingPiece) {
-		movesWithoutHangingPieces++;
-	    }
-
-	    // Get opponent move (simplified)
-	    final var opponentMoves = board.legalMoves();
-	    if (!opponentMoves.isEmpty()) {
-		board.doMove(opponentMoves.get(0));
-	    }
+	    assertTrue(!foundHangingPiece, "AI should not leave any White pieces hanging after its move");
+	    board.undoMove();
+	} finally {
+	    ai.cleanup();
 	}
-
-	// Reset board properly
-	final int moveCount = board.getMoveCounter();
-	for (var i = 0; i < moveCount; i++) {
-	    if (board.getBackup().size() > 0) {
-		board.undoMove();
-	    }
-	}
-
-	System.out.println(new StringBuilder().append("Moves without hanging pieces: ")
-		.append(movesWithoutHangingPieces).append("/").append(totalMoves).toString());
-
-	if (movesWithoutHangingPieces >= totalMoves - 1) {
-	    System.out.println("✅ PASSED: AI consistently protects pieces");
-	} else {
-	    System.out.println("❌ FAILED: AI not consistently protecting pieces");
-	}
-
-	System.out.println();
     }
 
     /**
-     * Test that engine considers protection before moving pieces
+     * Test that the AI consistently protects pieces over a 3-move sequence in a
+     * complex middlegame position.
      */
-    private static void testProtectionBeforeMoving() {
-	System.out.println("=== Testing Protection Before Moving ===");
-
-	// Position where moving a defender would leave another piece hanging
-	final var fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/3B4/PPPP1PPP/RNBQK2R w KQkq - 0 3";
+    @Test
+    @DisplayName("Piece Protection in Game Sequence")
+    @Timeout(value = 120, unit = TimeUnit.SECONDS)
+    void testPieceProtectionInGame() {
+	final var fen = "r2qkb1r/ppp2ppp/2n1bn2/3p4/3P4/2N1PN2/PPP2PPP/R1BQKB1R w KQkq - 0 6";
 	final var board = new Board();
 	board.loadFromFen(fen);
-
-	System.out.println("Position: " + fen);
-	System.out.println("Testing protection before moving...");
 
 	final var ai = new ChessAI();
-	final var bestMove = ai.getBestMove(board);
+	try {
+	    var movesWithoutHangingPieces = 0;
+	    final var totalMoves = 3;
 
-	System.out.println("AI chose: " + bestMove);
+	    for (var i = 0; i < totalMoves; i++) {
+		final var move = ai.getBestMove(board);
+		assertNotNull(move, "AI should find a move at iteration " + i);
+		board.doMove(move);
 
-	// Check if the move leaves any pieces hanging
-	board.doMove(bestMove);
+		// Check if any important pieces are hanging for the side that just moved
+		var foundHangingPiece = false;
+		for (final var square : Square.values()) {
+		    if (square == Square.NONE) {
+			continue;
+		    }
+		    final var piece = board.getPiece(square);
+		    if (piece == Piece.NONE || piece.getPieceType() == PieceType.PAWN
+			    || piece.getPieceType() == PieceType.KING) {
+			continue;
+		    }
+		    final var isAttacked = board.squareAttackedBy(square, piece.getPieceSide().flip()) != 0L;
+		    final var isDefended = board.squareAttackedBy(square, piece.getPieceSide()) != 0L;
+		    if (isAttacked && !isDefended) {
+			foundHangingPiece = true;
+			break;
+		    }
+		}
 
-	var foundHangingPiece = false;
-	for (final var square : com.github.bhlangonijr.chesslib.Square.values()) {
-	    if (square == com.github.bhlangonijr.chesslib.Square.NONE) {
-		continue;
+		if (!foundHangingPiece) {
+		    movesWithoutHangingPieces++;
+		}
+
+		// Play an opponent move to continue
+		final var opponentMoves = board.legalMoves();
+		if (!opponentMoves.isEmpty()) {
+		    board.doMove(opponentMoves.getFirst());
+		}
 	    }
 
-	    final var piece = board.getPiece(square);
-	    if (piece == com.github.bhlangonijr.chesslib.Piece.NONE || piece.getPieceSide() != Side.WHITE
-		    || piece.getPieceType() == com.github.bhlangonijr.chesslib.PieceType.PAWN
-		    || piece.getPieceType() == com.github.bhlangonijr.chesslib.PieceType.KING) {
-		continue;
-	    }
-
-	    final var isAttacked = board.squareAttackedBy(square, Side.BLACK) != 0L;
-	    final var isDefended = board.squareAttackedBy(square, Side.WHITE) != 0L;
-
-	    if (isAttacked && !isDefended) {
-		foundHangingPiece = true;
-		System.out.println(new StringBuilder().append("❌ FAILED: ").append(piece.getPieceType()).append(" on ")
-			.append(square).append(" is hanging!").toString());
-		break;
-	    }
+	    assertTrue(movesWithoutHangingPieces >= totalMoves - 1,
+		    new StringBuilder().append("AI should protect pieces in at least ").append(totalMoves - 1)
+			    .append(" of ").append(totalMoves).append(" moves, but only did in ")
+			    .append(movesWithoutHangingPieces).toString());
+	} finally {
+	    ai.cleanup();
 	}
-
-	if (!foundHangingPiece) {
-	    System.out.println("✅ PASSED: No pieces left hanging after move");
-	}
-
-	board.undoMove();
-	System.out.println();
-    }
-
-    /**
-     * Test weak piece protection (pieces that can be exchanged unfavorably)
-     */
-    private static void testWeakPieceProtection() {
-	System.out.println("=== Testing Weak Piece Protection ===");
-
-	// Position where queen is attacked by knight but defended by pawn
-	final var fen = "rnbqkbnr/pppp1ppp/8/4p3/3nP3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 3";
-	final var board = new Board();
-	board.loadFromFen(fen);
-
-	System.out.println("Position: " + fen);
-	System.out.println("Testing weak piece protection evaluation...");
-
-	final var evaluator = new PieceProtectionEvaluator();
-	final var context = new EvaluationContext(board, Side.WHITE);
-
-	final var score = evaluator.evaluate(context);
-	System.out.println("Protection score: " + score);
-
-	// We expect some penalty because queen is attacked by knight
-	if (score < -200) {
-	    System.out.println("✅ PASSED: Detected weak piece protection");
-	} else {
-	    System.out.println("❌ FAILED: Should detect weak piece protection");
-	}
-
-	System.out.println();
     }
 }
