@@ -1,5 +1,7 @@
 package io.github.seerainer.chess.ai.evaluation;
 
+import java.util.List;
+
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.File;
 import com.github.bhlangonijr.chesslib.Piece;
@@ -8,6 +10,9 @@ import com.github.bhlangonijr.chesslib.Rank;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.Square;
 import com.github.bhlangonijr.chesslib.move.Move;
+
+import io.github.seerainer.chess.ai.utils.ChessUtils;
+import io.github.seerainer.chess.config.ChessConfig;
 
 /**
  * Safe Check Evaluator that ensures the engine only prioritizes checks when
@@ -26,14 +31,14 @@ public class SafeCheckEvaluator implements EvaluationComponent {
     private static final int PROTECTED_CHECK_BONUS = 100;
     private static final int DISCOVERED_CHECK_BONUS = 150;
 
-    // Piece values for safety calculations
+    // Piece values for safety calculations (sourced from ChessConfig)
     private static final int[] PIECE_VALUES = { 0, // NONE
-	    100, // PAWN
-	    320, // KNIGHT
-	    330, // BISHOP
-	    500, // ROOK
-	    900, // QUEEN
-	    20000 // KING
+	    ChessConfig.Evaluation.PIECE_VALUES_PAWN, // PAWN
+	    ChessConfig.Evaluation.PIECE_VALUES_KNIGHT, // KNIGHT
+	    ChessConfig.Evaluation.PIECE_VALUES_BISHOP, // BISHOP
+	    ChessConfig.Evaluation.PIECE_VALUES_ROOK, // ROOK
+	    ChessConfig.Evaluation.PIECE_VALUES_QUEEN, // QUEEN
+	    ChessConfig.Evaluation.PIECE_VALUES_KING // KING
     };
 
     /**
@@ -116,7 +121,8 @@ public class SafeCheckEvaluator implements EvaluationComponent {
     }
 
     /**
-     * Check if a piece can attack a specific square
+     * Check if a piece can attack a specific square using static geometry +
+     * path-clear checks via ChessUtils, avoiding expensive legal move generation.
      */
     private static boolean canPieceAttackSquare(final Board board, final Piece piece, final Square from,
 	    final Square to) {
@@ -129,20 +135,8 @@ public class SafeCheckEvaluator implements EvaluationComponent {
 	    return false;
 	}
 
-	try {
-	    // Check if the move is legal (simplified check)
-	    final var legalMoves = board.legalMoves();
-	    for (final var move : legalMoves) {
-		if (move != null && move.getFrom() == from && move.getTo() == to) {
-		    return true;
-		}
-	    }
-	} catch (final Exception e) {
-	    // If there's an error, assume the piece cannot attack
-	    System.err.println("Error checking piece attack: " + e.getMessage());
-	}
-
-	return false;
+	// Use ChessUtils which checks geometry + path clearance for sliding pieces
+	return ChessUtils.canPieceAttackSquare(board, from, to);
     }
 
     /**
@@ -176,9 +170,10 @@ public class SafeCheckEvaluator implements EvaluationComponent {
     }
 
     /**
-     * Evaluate the safety of potential checking moves
+     * Evaluate the safety of potential checking moves. Uses a pre-computed legal
+     * move list when available to avoid redundant generation.
      */
-    private static int evaluateCheckSafety(final Board board, final Side side) {
+    private static int evaluateCheckSafety(final Board board, final Side side, final List<Move> legalMoves) {
 	var score = 0;
 
 	// Safety checks first
@@ -188,16 +183,17 @@ public class SafeCheckEvaluator implements EvaluationComponent {
 	}
 
 	try {
-	    final var legalMoves = board.legalMoves();
+	    // Use provided legal moves (from context cache) or generate if null
+	    final var moves = (legalMoves != null) ? legalMoves : board.legalMoves();
 
 	    // Safety check for move list
-	    if (legalMoves == null || legalMoves.isEmpty()) {
+	    if (moves == null || moves.isEmpty()) {
 		return 0;
 	    }
 
 	    // Limit evaluation for performance
 	    var checkedMoves = 0;
-	    for (final var move : legalMoves) {
+	    for (final var move : moves) {
 		if (move == null) {
 		    continue;
 		}
@@ -354,14 +350,16 @@ public class SafeCheckEvaluator implements EvaluationComponent {
     public int evaluate(final EvaluationContext context) {
 	final var board = context.getBoard();
 	final var evaluatingSide = context.getEvaluatingSide();
+	final var legalMoves = context.getLegalMoves();
 
 	var score = 0;
 
-	// Evaluate check safety for our potential moves
-	score += evaluateCheckSafety(board, evaluatingSide);
+	// Evaluate check safety for our potential moves (uses cached legal moves)
+	score += evaluateCheckSafety(board, evaluatingSide, legalMoves);
 
-	// Penalize opponent's unsafe checks against us
-	score -= evaluateCheckSafety(board, evaluatingSide.flip());
+	// Penalize opponent's unsafe checks against us (returns 0 early if not
+	// opponent's turn)
+	score -= evaluateCheckSafety(board, evaluatingSide.flip(), null);
 
 	return score;
     }

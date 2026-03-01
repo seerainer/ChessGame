@@ -16,11 +16,14 @@ import org.eclipse.swt.widgets.Composite;
 
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Piece;
+import com.github.bhlangonijr.chesslib.PieceType;
 import com.github.bhlangonijr.chesslib.Square;
 import com.github.bhlangonijr.chesslib.move.Move;
 
+import io.github.seerainer.chess.config.ChessConfig;
+
 public class ChessBoard extends Canvas {
-    private static final int BOARD_SIZE = 640;
+    private static final int BOARD_SIZE = ChessConfig.UI.BOARD_SIZE;
     private static final int SQUARE_SIZE = BOARD_SIZE / 8;
 
     // Unicode chess piece symbols
@@ -35,6 +38,7 @@ public class ChessBoard extends Canvas {
     private Color moveHintColor;
     private Font pieceFont;
     private Font smallPawnFont; // Font for smaller black pawns
+    private volatile boolean processingMove = false;
 
     ChessBoard(final Composite parent, final Board board, final ChessGameUI gameUI) {
 	super(parent, SWT.DOUBLE_BUFFERED); // Enable double buffering to reduce flickering
@@ -226,17 +230,30 @@ public class ChessBoard extends Canvas {
 	    return null;
 	}
 
-	// Find the legal move that matches the from and to squares
-	// This will automatically handle pawn promotion since the chesslib
-	// generates all legal moves including promotion moves
-	// For pawn promotion, chesslib automatically generates moves that promote to
-	// queen
-	// If there are multiple promotion options, we'll pick the queen promotion
-	return legalMoves.stream().filter(move -> move.getFrom() == from && move.getTo() == to).findFirst()
-		.orElse(null);
+	// Find legal moves matching the from and to squares
+	final var matching = legalMoves.stream().filter(move -> move.getFrom() == from && move.getTo() == to).toList();
+
+	if (matching.isEmpty()) {
+	    return null;
+	}
+
+	// If there's only one match, return it directly
+	if (matching.size() == 1) {
+	    return matching.get(0);
+	}
+
+	// Multiple matches means pawn promotion — prefer queen promotion
+	return matching.stream().filter(
+		move -> move.getPromotion() != Piece.NONE && move.getPromotion().getPieceType() == PieceType.QUEEN)
+		.findFirst().orElse(matching.get(0));
     }
 
     private void handleMouseClick(final int x, final int y) {
+	// Guard against rapid clicks during move processing
+	if (processingMove) {
+	    return;
+	}
+
 	final var col = x / SQUARE_SIZE;
 	final var row = y / SQUARE_SIZE;
 
@@ -269,11 +286,16 @@ public class ChessBoard extends Canvas {
 	    // Attempt move
 	    final var move = findLegalMove(selectedSquare, clickedSquare);
 	    if (move != null) {
-		board.doMove(move);
-		selectedSquare = null;
-		legalMoves = null;
-		redraw();
-		gameUI.onPlayerMove(); // Notify the UI that player made a move
+		processingMove = true;
+		try {
+		    board.doMove(move);
+		    selectedSquare = null;
+		    legalMoves = null;
+		    redraw();
+		    gameUI.onPlayerMove(); // Notify the UI that player made a move
+		} finally {
+		    processingMove = false;
+		}
 		return; // Early return to avoid double redraw
 	    }
 	    if (board.getPiece(clickedSquare) != Piece.NONE) {
@@ -310,8 +332,5 @@ public class ChessBoard extends Canvas {
     private void setupEventHandlers() {
 	addPaintListener(e -> drawBoard(e.gc));
 	addMouseListener(mouseDownAdapter(e -> handleMouseClick(e.x, e.y)));
-
-	// Prevent background clearing to reduce flickering
-	addListener(SWT.EraseItem, event -> event.detail &= ~SWT.BACKGROUND);
     }
 }

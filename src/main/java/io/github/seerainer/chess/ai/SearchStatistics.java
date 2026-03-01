@@ -4,6 +4,9 @@ package io.github.seerainer.chess.ai;
  * Centralized statistics tracking for chess AI search operations
  */
 public class SearchStatistics {
+    // Total node count
+    private long nodesSearched = 0;
+
     // Futility pruning statistics
     private long futilityPrunes = 0;
     private long reverseFutilityPrunes = 0;
@@ -43,6 +46,14 @@ public class SearchStatistics {
 		.formatted(qNodes, deltaPrunes, qFutilityPrunes, seePrunes, qTTHits);
     }
 
+    public long getNodesSearched() {
+	return nodesSearched;
+    }
+
+    public void incrementNodes() {
+	nodesSearched++;
+    }
+
     public void incrementProbcutPrunes() {
 	probcutPrunes++;
     }
@@ -61,6 +72,9 @@ public class SearchStatistics {
     }
 
     public void reset() {
+	// Total nodes
+	nodesSearched = 0;
+
 	// Futility stats
 	futilityPrunes = 0;
 	reverseFutilityPrunes = 0;

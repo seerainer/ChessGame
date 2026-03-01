@@ -45,7 +45,6 @@ public class ChessGameUI {
     private Label statusLabel;
     private Label turnLabel;
     private Label gameModeLabel;
-    private Thread aiThread;
     private volatile boolean aiThinking = false;
     private volatile boolean playingAgainstAI = false;
     private volatile boolean computerVsComputer = false;
@@ -74,14 +73,6 @@ public class ChessGameUI {
 
 	// **NEW: Add shell dispose listener for proper cleanup**
 	shell.addDisposeListener(_ -> dispose());
-    }
-
-    /**
-     * **NEW: Final cleanup operations**
-     */
-    private static void performFinalCleanup() {
-	// Suggest aggressive garbage collection
-	System.gc();
     }
 
     /**
@@ -200,11 +191,12 @@ public class ChessGameUI {
 	shell.setText(ChessConfig.UI.WINDOW_TITLE); // Now using configuration
 
 	// Set shell size based on board size configuration
-	final var windowSize = ChessConfig.UI.BOARD_SIZE; // Add padding for UI elements
-	shell.setSize(windowSize, windowSize); // Extra height for menu and status
+	final var windowWidth = ChessConfig.UI.BOARD_SIZE + 40; // Padding for window borders
+	final var windowHeight = ChessConfig.UI.BOARD_SIZE + 120; // Extra height for menu and status
+	shell.setSize(windowWidth, windowHeight);
 
-	// **NEW: Set minimum size based on configuration**
-	shell.setMinimumSize(windowSize + 100, windowSize + 180);
+	// **NEW: Set minimum size to prevent board clipping**
+	shell.setMinimumSize(windowWidth, windowHeight);
 
 	// Center the window on screen
 	final var displayBounds = display.getPrimaryMonitor().getBounds();
@@ -276,9 +268,6 @@ public class ChessGameUI {
 	    disposeAllocatedFonts();
 	    clearPositionTracking();
 	}
-
-	// Final cleanup
-	performFinalCleanup();
     }
 
     /**
@@ -333,8 +322,10 @@ public class ChessGameUI {
      */
     private boolean isDrawByRepetition() {
 	final var currentPosition = getPositionKey();
-	final var count = positionCount.getOrDefault(currentPosition, Integer.valueOf(0)).intValue();
-	return count >= ChessConfig.Rules.THREEFOLD_REPETITION_LIMIT; // Now using configuration
+	synchronized (positionHistory) {
+	    final var count = positionCount.getOrDefault(currentPosition, Integer.valueOf(0)).intValue();
+	    return count >= ChessConfig.Rules.THREEFOLD_REPETITION_LIMIT; // Now using configuration
+	}
     }
 
     boolean isPlayerTurn() {
@@ -521,8 +512,10 @@ public class ChessGameUI {
 	chessBoard.redraw();
 
 	// Reset position tracking
-	positionHistory.clear();
-	positionCount.clear();
+	synchronized (positionHistory) {
+	    positionHistory.clear();
+	    positionCount.clear();
+	}
 	movesWithoutCaptureOrPawn = 0;
 
 	updateUI();
@@ -577,9 +570,6 @@ public class ChessGameUI {
 		}
 	    }
 	}
-
-	// Force garbage collection
-	performFinalCleanup();
     }
 
     /**
@@ -597,11 +587,6 @@ public class ChessGameUI {
 	    performAggressiveCleanup();
 	} else {
 	    performRoutineCleanup();
-	}
-
-	// Suggest garbage collection if needed
-	if (usedMemory > MAX_MEMORY_USAGE_MB * 0.8) {
-	    performFinalCleanup();
 	}
     }
 
@@ -629,12 +614,13 @@ public class ChessGameUI {
 		// Use configuration threshold for memory cleanup
 		final var cleanupThreshold = ChessConfig.Memory.MEMORY_CLEANUP_THRESHOLD * 100;
 
-		// Log memory usage if it's above threshold
+		// Trigger cleanup when above threshold
 		if (memoryPercentage > cleanupThreshold) {
-		    System.out.printf("Chess Engine Memory Usage: %d/%d MB (%.1f%%) - Above cleanup threshold%n",
-			    usedMemory, maxMemory, memoryPercentage);
+		    if (ChessConfig.Debug.ENABLE_DEBUG_LOGGING) {
+			System.out.printf("Chess Engine Memory Usage: %d/%d MB (%.1f%%) - Above cleanup threshold%n",
+				usedMemory, maxMemory, memoryPercentage);
+		    }
 
-		    // Trigger cleanup when above threshold
 		    performAggressiveCleanup();
 		}
 
@@ -669,26 +655,15 @@ public class ChessGameUI {
     }
 
     /**
-     * Safely stop the AI thread if it's running
+     * Safely stop the AI if it's running
      */
     private void stopAIThread() {
-	if (aiThinking) {
-	    // Cancel the AI search
-	    ai.cancelSearch();
-	    aiThinking = false;
-	}
-
-	// Clean up the old thread-based approach if still present
-	if (aiThread == null || !aiThread.isAlive()) {
+	if (!aiThinking) {
 	    return;
 	}
-	aiThread.interrupt();
-	try {
-	    aiThread.join(3000); // Wait up to 3 seconds
-	} catch (final InterruptedException e) {
-	    Thread.currentThread().interrupt();
-	}
-	aiThread = null;
+	// Cancel the AI search
+	ai.cancelSearch();
+	aiThinking = false;
     }
 
     /**
@@ -697,29 +672,30 @@ public class ChessGameUI {
     private void updatePositionTracking(final boolean resetCounter) {
 	final var currentPosition = getPositionKey();
 
-	// Add current position to history
-	final var value = Integer
-		.valueOf(positionCount.getOrDefault(currentPosition, Integer.valueOf(0)).intValue() + 1);
-	positionHistory.add(currentPosition);
-	positionCount.put(currentPosition, value);
+	synchronized (positionHistory) {
+	    // Add current position to history
+	    final var value = Integer
+		    .valueOf(positionCount.getOrDefault(currentPosition, Integer.valueOf(0)).intValue() + 1);
+	    positionHistory.add(currentPosition);
+	    positionCount.put(currentPosition, value);
+
+	    // Keep position history manageable (last 100 positions)
+	    if (positionHistory.size() > 100) {
+		final var oldPosition = positionHistory.remove(0);
+		final var count = positionCount.get(oldPosition).intValue();
+		if (count <= 1) {
+		    positionCount.remove(oldPosition);
+		} else {
+		    positionCount.put(oldPosition, Integer.valueOf(count - 1));
+		}
+	    }
+	}
 
 	// Update 50-move rule counter
 	if (resetCounter) {
 	    movesWithoutCaptureOrPawn = 0;
 	} else {
 	    movesWithoutCaptureOrPawn++;
-	}
-
-	// Keep position history manageable (last 100 positions)
-	if (positionHistory.size() <= 100) {
-	    return;
-	}
-	final var oldPosition = positionHistory.remove(0);
-	final var count = positionCount.get(oldPosition).intValue();
-	if (count <= 1) {
-	    positionCount.remove(oldPosition);
-	} else {
-	    positionCount.put(oldPosition, Integer.valueOf(count - 1));
 	}
     }
 

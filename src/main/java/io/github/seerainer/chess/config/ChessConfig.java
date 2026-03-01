@@ -80,7 +80,6 @@ public class ChessConfig {
     public static final class Search {
 	public static final int KILLER_MOVES_DEPTH = 64; // IMPROVED: Doubled from 32
 	public static final int KILLER_MOVES_SLOTS = 4; // IMPROVED: Increased from 3
-	public static final int MAX_HISTORY_VALUE = 65536; // IMPROVED: Doubled for better resolution
 	public static final int HISTORY_AGING_THRESHOLD = 32768;
 	public static final int NULL_MOVE_REDUCTION = 3;
 	public static final int QUIESCENCE_MAX_DEPTH = 20; // IMPROVED: Increased from 16
@@ -108,6 +107,6 @@ public class ChessConfig {
 	public static final int AI_MOVE_DELAY_MS = 300; // IMPROVED: Faster response from 500ms
 	public static final int THREAD_SHUTDOWN_TIMEOUT_MS = 5000;
 	public static final String WINDOW_TITLE = "Chess Game - Advanced AI Engine";
-	public static final int BOARD_SIZE = 568;
+	public static final int BOARD_SIZE = 640;
     }
 }

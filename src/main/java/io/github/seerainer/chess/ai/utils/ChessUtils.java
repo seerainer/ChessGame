@@ -94,13 +94,55 @@ public class ChessUtils {
 
     /**
      * Check if a piece at a given square can attack another square (with board
-     * context)
+     * context). For sliding pieces (rook, bishop, queen), verifies the path is not
+     * blocked by other pieces.
      */
     public static boolean canPieceAttackSquare(final Board board, final Square from, final Square to) {
 	final var piece = board.getPiece(from);
-	if (piece == null || piece == Piece.NONE) {
+	// First check basic attack geometry
+	if (piece == null || piece == Piece.NONE || !canPieceAttackSquare(piece, from, to)) {
 	    return false;
 	}
-	return canPieceAttackSquare(piece, from, to);
+	// For sliding pieces, verify the path is not blocked
+	final var type = piece.getPieceType();
+	if (type == PieceType.ROOK || type == PieceType.BISHOP || type == PieceType.QUEEN) {
+	    return isPathClear(board, from, to);
+	}
+	return true;
+    }
+
+    /**
+     * Check if the path between two squares is clear of pieces (exclusive of
+     * endpoints). Used for sliding piece attack validation.
+     */
+    private static boolean isPathClear(final Board board, final Square from, final Square to) {
+	final var fromFile = from.getFile().ordinal();
+	final var fromRank = from.getRank().ordinal();
+	final var toFile = to.getFile().ordinal();
+	final var toRank = to.getRank().ordinal();
+
+	final var dFile = Integer.signum(toFile - fromFile);
+	final var dRank = Integer.signum(toRank - fromRank);
+
+	var f = fromFile + dFile;
+	var r = fromRank + dRank;
+
+	while (f != toFile || r != toRank) {
+	    // Build square name from file/rank indices
+	    final var fileChar = (char) ('a' + f);
+	    final var rankChar = (char) ('1' + r);
+	    try {
+		final var sq = Square.valueOf(
+			(new StringBuilder().append("").append(fileChar).append(rankChar).toString()).toUpperCase());
+		if (board.getPiece(sq) != Piece.NONE) {
+		    return false; // Blocked
+		}
+	    } catch (final IllegalArgumentException e) {
+		return false; // Invalid square
+	    }
+	    f += dFile;
+	    r += dRank;
+	}
+	return true;
     }
 }

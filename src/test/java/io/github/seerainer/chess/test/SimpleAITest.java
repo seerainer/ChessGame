@@ -1,43 +1,54 @@
 package io.github.seerainer.chess.test;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.concurrent.TimeUnit;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+
 import com.github.bhlangonijr.chesslib.Board;
 
 import io.github.seerainer.chess.ChessAI;
 
-public class SimpleAITest {
-    public static void main(final String[] args) {
-	System.out.println("Testing if AI makes proper opening moves...");
+/**
+ * Tests that the AI makes reasonable opening moves — no early edge-pawn pushes,
+ * and can play a full 6-move sequence without returning null.
+ */
+class SimpleAITest {
 
-	// Starting position
+    /**
+     * Play 6 consecutive moves from the starting position and verify all moves are
+     * non-null and that early moves are not dubious edge-pawn pushes (a2a3/a2a4,
+     * h2h3/h2h4, a7a6/a7a5, h7h6/h7h5).
+     */
+    @Test
+    @DisplayName("AI plays 6 reasonable opening moves")
+    @Timeout(value = 120, unit = TimeUnit.SECONDS)
+    void testOpeningMoveQuality() {
 	final var board = new Board();
 	final var ai = new ChessAI();
 
-	// Play first 6 moves
-	for (var i = 1; i <= 6; i++) {
-	    System.out.println(new StringBuilder().append("\n=== Move ").append(i).append(" ===").toString());
-	    System.out.println("Position: " + board.getFen());
-	    System.out.println("To move: " + board.getSideToMove());
+	try {
+	    for (var i = 1; i <= 6; i++) {
+		final var move = ai.getBestMove(board);
+		assertNotNull(move, "AI should find a move at move " + i);
 
-	    final var move = ai.getBestMove(board);
-	    System.out.println("AI plays: " + move);
-
-	    if (move == null) {
-		System.out.println("No move found!");
-		break;
-	    }
-
-	    board.doMove(move);
-	    System.out.println("After move:");
-	    System.out.println(board.toString());
-
-	    // Stop if we see bad moves like early pawn advances
-	    if (move.toString().matches("[a-h][2-7][a-h][3-6]") && i <= 3) {
-		final var moveStr = move.toString();
-		if (moveStr.startsWith("a2") || moveStr.startsWith("h2") || moveStr.startsWith("a7")
-			|| moveStr.startsWith("h7")) {
-		    System.out.println("*** WARNING: Bad opening move detected! ***");
+		// For the first 3 half-moves, warn about bad edge-pawn pushes
+		if (i <= 3) {
+		    final var moveStr = move.toString();
+		    final var isBadEdgePush = moveStr.startsWith("a2") || moveStr.startsWith("h2")
+			    || moveStr.startsWith("a7") || moveStr.startsWith("h7");
+		    assertTrue(!isBadEdgePush, new StringBuilder().append("Move ").append(i)
+			    .append(" should not be an early edge-pawn push, but was: ").append(moveStr).toString());
 		}
+
+		board.doMove(move);
 	    }
+	} finally {
+	    ai.cleanup();
 	}
     }
 }

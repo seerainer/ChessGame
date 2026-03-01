@@ -2,6 +2,8 @@ package io.github.seerainer.chess.ai;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Piece;
@@ -16,7 +18,25 @@ import io.github.seerainer.chess.config.ChessConfig;
 
 /**
  * **ENHANCED: Advanced move ordering with sophisticated history heuristics**
- * Implements multiple heuristic techniques for optimal move ordering
+ * Implements multiple heuristic techniques for optimal move ordering.
+ *
+ * <p>
+ * <b>Thread-safety note:</b> The static history arrays ({@code HISTORY_TABLE},
+ * {@code BUTTERFLY_TABLE}, {@code COUNTERMOVE_TABLE}, {@code FOLLOWUP_TABLE},
+ * {@code PIECE_HISTORY}, {@code KILLER_MOVES}, {@code THREAT_TABLE}) are
+ * intentionally unsynchronized and shared across parallel search threads. This
+ * follows the "benign data race" pattern used by production chess engines (e.g.
+ * Stockfish): torn reads/writes only affect heuristic move ordering quality,
+ * never search correctness. Adding synchronization would severely degrade
+ * parallel search throughput for negligible accuracy gains.
+ * </p>
+ *
+ * <p>
+ * Mutable counters ({@code historyAge}, {@code totalMoveEvaluations}, etc.) use
+ * {@code AtomicInteger}/{@code AtomicLong} to avoid undefined behavior on
+ * concurrent increments; exact accuracy is not required but atomic operations
+ * are cheap enough to be worthwhile.
+ * </p>
  */
 public class MoveOrdering {
     // **ENHANCED: Multi-dimensional history tables for better move evaluation - now
@@ -43,18 +63,18 @@ public class MoveOrdering {
     private static final int[][][] THREAT_TABLE = new int[2][64][64]; // [color][from][to]
 
     // **NEW: History aging control - now using configuration values**
-    private static int historyAge = 0;
+    private static final AtomicInteger historyAge = new AtomicInteger(0);
 
     private static final int HISTORY_AGING_THRESHOLD = ChessConfig.Search.HISTORY_AGING_THRESHOLD;
 
-    // **NEW: Statistics for tuning**
-    private static long totalMoveEvaluations = 0;
+    // **NEW: Statistics for tuning (atomic for thread-safety in parallel search)**
+    private static final AtomicLong totalMoveEvaluations = new AtomicLong(0);
 
-    private static long historyHits = 0;
+    private static final AtomicLong historyHits = new AtomicLong(0);
 
-    private static long killerHits = 0;
+    private static final AtomicLong killerHits = new AtomicLong(0);
 
-    private static long countermoveHits = 0;
+    private static final AtomicLong countermoveHits = new AtomicLong(0);
 
     private MoveOrdering() {
 	throw new IllegalStateException("Utility class");
@@ -64,10 +84,10 @@ public class MoveOrdering {
      * **NEW: Age history tables to prevent overflow and maintain relevance**
      */
     public static void ageHistoryTables() {
-	historyAge++;
+	historyAge.incrementAndGet();
 
 	// Age every 1000 evaluations or when values get too large
-	if (historyAge % 1000 == 0 || needsAging()) {
+	if (historyAge.get() % 1000 == 0 || needsAging()) {
 	    performHistoryAging();
 	}
     }
@@ -82,10 +102,10 @@ public class MoveOrdering {
      * **NEW: Clear statistics for new game**
      */
     public static void clearStatistics() {
-	totalMoveEvaluations = 0;
-	historyHits = 0;
-	killerHits = 0;
-	countermoveHits = 0;
+	totalMoveEvaluations.set(0);
+	historyHits.set(0);
+	killerHits.set(0);
+	countermoveHits.set(0);
     }
 
     /**
@@ -109,7 +129,7 @@ public class MoveOrdering {
 	if (((expectedCounter == null) || !expectedCounter.equals(move))) {
 	    return 0;
 	}
-	countermoveHits++;
+	countermoveHits.incrementAndGet();
 	return 50000; // Significant bonus for countermoves
     }
 
@@ -213,16 +233,17 @@ public class MoveOrdering {
      * **NEW: Get statistics for tuning and debugging**
      */
     public static String getStatistics() {
-	if (totalMoveEvaluations == 0) {
+	final var total = totalMoveEvaluations.get();
+	if (total == 0) {
 	    return "No move evaluations yet";
 	}
 
-	final var historyHitRate = (double) historyHits / totalMoveEvaluations * 100;
-	final var killerHitRate = (double) killerHits / totalMoveEvaluations * 100;
-	final var countermoveHitRate = (double) countermoveHits / totalMoveEvaluations * 100;
+	final var historyHitRate = (double) historyHits.get() / total * 100;
+	final var killerHitRate = (double) killerHits.get() / total * 100;
+	final var countermoveHitRate = (double) countermoveHits.get() / total * 100;
 
 	return "Move Ordering Stats: %.1f%% history hits, %.1f%% killer hits, %.1f%% countermove hits (Age: %d)"
-		.formatted(historyHitRate, killerHitRate, countermoveHitRate, historyAge);
+		.formatted(historyHitRate, killerHitRate, countermoveHitRate, historyAge.get());
     }
 
     // **NEW: Check if square index is valid for array access**
@@ -296,7 +317,7 @@ public class MoveOrdering {
     private static int scoreMoveForOrderingAdvanced(final Board board, final Move move, final int depth,
 	    final TranspositionTable.TTEntry ttEntry, final Move lastMove, final Move ourLastMove) {
 	var score = 0;
-	totalMoveEvaluations++;
+	totalMoveEvaluations.incrementAndGet();
 
 	// 1. Hash move (from transposition table) - highest priority
 	if (ttEntry != null && move.equals(ttEntry.bestMove)) {
@@ -332,7 +353,7 @@ public class MoveOrdering {
 	    for (var i = 0; i < KILLER_MOVES[depth].length; i++) {
 		if (move.equals(KILLER_MOVES[depth][i])) {
 		    score += 800000 - (i * 50000); // Decreasing bonus for later killer slots
-		    killerHits++;
+		    killerHits.incrementAndGet();
 		    break;
 		}
 	    }
@@ -348,11 +369,11 @@ public class MoveOrdering {
 	    // Traditional history
 	    final var historyScore = HISTORY_TABLE[colorIndex][fromIndex][toIndex];
 	    if (historyScore > 0) {
-		historyHits++;
+		historyHits.incrementAndGet();
 	    }
 	    score += historyScore;
 
-	    // **NEW: Threat bonus**
+	    // Threat bonus
 	    score += THREAT_TABLE[colorIndex][fromIndex][toIndex] * 10;
 	}
 
@@ -367,9 +388,6 @@ public class MoveOrdering {
 
 	// **NEW: Follow-up move heuristic**
 	score += getFollowupScore(move, ourLastMove);
-
-	// **NEW: Threat bonus**
-	score += THREAT_TABLE[colorIndex][fromIndex][toIndex] * 10;
 
 	// 5. PIECE DEVELOPMENT BONUSES - Strongly encourage early piece development
 	final var movingPiece = board.getPiece(move.getFrom());
@@ -408,47 +426,38 @@ public class MoveOrdering {
 	    }
 	}
 
-	// 6. Checks - but lower priority than captures and development
-	// FIXED: Use a safer method to check for checks without modifying board state
-	var givesCheck = false;
-	try {
-	    board.doMove(move);
-	    givesCheck = board.isKingAttacked();
-	    board.undoMove();
-	} catch (final Exception e) {
-	    // If there's an error, assume no check and continue
-	    givesCheck = false;
-	    System.err.println("Error checking for check in move ordering: " + e.getMessage());
+	// 6. Checks - use static detection (piece attacks enemy king square from
+	// destination)
+	final var enemySide = movingPiece.getPieceSide().flip();
+	final var enemyKingPiece = enemySide == Side.WHITE ? Piece.WHITE_KING : Piece.BLACK_KING;
+	var enemyKingSquare = Square.NONE;
+	for (final var sq : Square.values()) {
+	    if (sq != Square.NONE && board.getPiece(sq) == enemyKingPiece) {
+		enemyKingSquare = sq;
+		break;
+	    }
+	}
+	if (enemyKingSquare != Square.NONE
+		&& canPieceAttackSquare(movingPiece.getPieceType(), move.getTo(), enemyKingSquare)) {
+	    score += 25000; // Check bonus
 	}
 
-	if (givesCheck) {
-	    score += 25000; // REDUCED from 100000 - checks are less important than piece safety
-	}
-
-	// 7. Attacking moves (threatening opponent pieces)
+	// 7. Attacking moves — static detection from destination square
 	final var targetPiece = board.getPiece(move.getTo());
 	if (targetPiece == Piece.NONE) {
-	    // Check if this move attacks any enemy pieces
-	    try {
-		board.doMove(move);
-		var attackBonus = 0;
-		for (final var square : Square.values()) {
-		    if (square != Square.NONE) {
-			final var piece = board.getPiece(square);
-			// Check if our moved piece can attack this enemy piece
-			if ((piece != Piece.NONE && piece.getPieceSide() != board.getSideToMove())
-				&& canPieceAttackSquare(board.getPiece(move.getTo()).getPieceType(), move.getTo(),
-					square)) {
-			    attackBonus += Math.abs(MaterialEvaluator.getPieceValue(piece)) / 10;
-			}
+	    // Check if our piece type can attack any enemy piece from the destination
+	    // square
+	    var attackBonus = 0;
+	    for (final var square : Square.values()) {
+		if (square != Square.NONE) {
+		    final var piece = board.getPiece(square);
+		    if (piece != Piece.NONE && piece.getPieceSide() != movingPiece.getPieceSide()
+			    && canPieceAttackSquare(movingPiece.getPieceType(), move.getTo(), square)) {
+			attackBonus += Math.abs(MaterialEvaluator.getPieceValue(piece)) / 10;
 		    }
 		}
-		score += attackBonus;
-		board.undoMove();
-	    } catch (final Exception e) {
-		// If there's an error, skip the attack bonus
-		System.err.println("Error checking attacks in move ordering: " + e.getMessage());
 	    }
+	    score += attackBonus;
 	}
 
 	// 8. PAWN ADVANCEMENT MOVES - prioritize pushing pawns toward promotion

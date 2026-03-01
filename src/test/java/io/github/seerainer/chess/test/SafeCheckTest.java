@@ -1,165 +1,147 @@
 package io.github.seerainer.chess.test;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.concurrent.TimeUnit;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.Square;
-import com.github.bhlangonijr.chesslib.move.Move;
 
 import io.github.seerainer.chess.ChessAI;
 
 /**
- * Test to verify that the chess engine no longer prioritizes unsafe checks
- * where the checking piece can be easily captured.
+ * Tests that the chess engine does not prioritize unsafe checks where the
+ * checking piece can be easily captured.
  */
-public class SafeCheckTest {
-
-    public static void main(final String[] args) {
-	System.out.println("=== Safe Check Test Suite ===");
-
-	testUnsafeQueenCheck();
-	testUnsafeRookCheck();
-	testSafeCheckVsUnsafeCheck();
-	testCheckVsQueenCapture();
-
-	System.out.println("=== Safe Check Test Complete ===");
-    }
+class SafeCheckTest {
 
     /**
-     * Test that the engine prefers capturing the queen over giving check
+     * Test that the engine avoids giving check with the queen when the queen would
+     * be captured (Qf3-f7 in front of the king with pawns defending).
      */
-    private static void testCheckVsQueenCapture() {
-	System.out.println("\n=== Testing Check vs Queen Capture ===");
-
-	// Position where AI can either give check or capture queen
-	final var fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2";
+    @Test
+    @DisplayName("Avoid Unsafe Queen Check")
+    @Timeout(value = 30, unit = TimeUnit.SECONDS)
+    void testUnsafeQueenCheck() {
+	// White queen on f3 can give check on f7, but would be captured
+	final var fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/5Q2/PPPP1PPP/RNB1KBNR b KQkq - 1 2";
 	final var board = new Board();
 	board.loadFromFen(fen);
-
-	// Artificially place opponent queen in capturable position
-	board.setPiece(Piece.BLACK_QUEEN, Square.F7);
-
-	System.out.println("Position: Queen on f7 can be captured, or other moves available");
+	board.setSideToMove(Side.WHITE);
 
 	final var ai = new ChessAI();
-	final var bestMove = ai.getBestMove(board);
+	try {
+	    final var bestMove = ai.getBestMove(board);
+	    assertNotNull(bestMove, "AI should find a move");
 
-	System.out.println("AI chose: " + bestMove);
-
-	// Check if AI captured the queen
-	final var captured = board.getPiece(bestMove.getTo());
-	if (captured == Piece.BLACK_QUEEN) {
-	    System.out.println("✅ PASSED: AI captured queen instead of giving unsafe check");
-	} else {
-	    // Test if the move gives check
-	    board.doMove(bestMove);
-	    final var givesCheck = board.isKingAttacked();
-
-	    if (givesCheck) {
-		System.out.println("❌ FAILED: AI gave check instead of capturing queen!");
-	    } else {
-		System.out.println("✅ PASSED: AI made safe move (neither check nor queen capture)");
-	    }
-	    board.undoMove();
+	    // AI should not play Qf3-f7 (unsafe check — queen captured by king/pawn)
+	    final var isUnsafeCheck = bestMove.getFrom() == Square.F3 && bestMove.getTo() == Square.F7;
+	    assertTrue(!isUnsafeCheck, "AI should not give unsafe queen check (Qf7), chose: " + bestMove);
+	} finally {
+	    ai.cleanup();
 	}
     }
 
     /**
-     * Test that the engine prefers safe checks over unsafe checks
+     * Test that the engine returns a valid move in a position where a rook could
+     * give check but would be captured.
      */
-    private static void testSafeCheckVsUnsafeCheck() {
-	System.out.println("\n=== Testing Safe vs Unsafe Check Preference ===");
+    @Test
+    @DisplayName("Avoid Unsafe Rook Check")
+    @Timeout(value = 30, unit = TimeUnit.SECONDS)
+    void testUnsafeRookCheck() {
+	final var board = new Board();
+	board.loadFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKB1R w KQkq - 0 1");
 
-	// Position where there are both safe and unsafe check options
+	final var ai = new ChessAI();
+	try {
+	    final var bestMove = ai.getBestMove(board);
+	    assertNotNull(bestMove, "AI should find a move in this position");
+	} finally {
+	    ai.cleanup();
+	}
+    }
+
+    /**
+     * Test that if the engine gives check, the checking piece is safe (defended or
+     * not attacked).
+     */
+    @Test
+    @DisplayName("Safe Check vs Unsafe Check Preference")
+    @Timeout(value = 60, unit = TimeUnit.SECONDS)
+    void testSafeCheckVsUnsafeCheck() {
+	// Italian Game position — both safe and unsafe check options exist
 	final var fen = "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4";
 	final var board = new Board();
 	board.loadFromFen(fen);
 
-	System.out.println("Position: " + fen);
-	System.out.println("Testing if AI prefers safe checks over unsafe ones");
-
 	final var ai = new ChessAI();
-	final var bestMove = ai.getBestMove(board);
+	try {
+	    final var bestMove = ai.getBestMove(board);
+	    assertNotNull(bestMove, "AI should find a move");
 
-	System.out.println("AI chose: " + bestMove);
+	    board.doMove(bestMove);
+	    final var givesCheck = board.isKingAttacked();
 
-	// Test the safety of the chosen move
-	board.doMove(bestMove);
-	final var givesCheck = board.isKingAttacked();
+	    if (givesCheck) {
+		// If AI chose to give check, verify the checker is safe
+		final var checkerSquare = bestMove.getTo();
+		final var isAttacked = board.squareAttackedBy(checkerSquare, Side.BLACK) != 0L;
+		final var isDefended = board.squareAttackedBy(checkerSquare, Side.WHITE) != 0L;
 
-	if (givesCheck) {
-	    // Check if the piece that gave check is safe
-	    final var checkerSquare = bestMove.getTo();
-
-	    final var isAttacked = board.squareAttackedBy(checkerSquare, Side.BLACK) != 0L;
-	    final var isDefended = board.squareAttackedBy(checkerSquare, Side.WHITE) != 0L;
-
-	    if (isAttacked && !isDefended) {
-		System.out.println("❌ FAILED: AI gave check with undefended piece!");
-	    } else {
-		System.out.println("✅ PASSED: AI gave safe check or defended piece");
+		assertTrue(!isAttacked || isDefended,
+			new StringBuilder().append("If AI gives check, the checking piece should be safe, but ")
+				.append(bestMove).append(" leaves piece undefended").toString());
 	    }
-	} else {
-	    System.out.println("✅ PASSED: AI chose not to give check (likely safer)");
-	}
+	    // If AI chose not to give check, that is fine — it may have found a better move
 
-	board.undoMove();
-    }
-
-    /**
-     * Test that the engine avoids giving check with the queen when it can be
-     * captured
-     */
-    private static void testUnsafeQueenCheck() {
-	System.out.println("\n=== Testing Unsafe Queen Check ===");
-
-	// Position where queen can give check but would be captured
-	final var fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/5Q2/PPPP1PPP/RNB1KBNR b KQkq - 1 2";
-	final var board = new Board();
-	board.loadFromFen(fen);
-
-	System.out.println("Position: " + fen);
-	System.out.println("White queen on f3 can give check on f7, but would be captured");
-
-	// Switch to white's turn
-	board.setSideToMove(Side.WHITE);
-
-	final var ai = new ChessAI();
-	final var bestMove = ai.getBestMove(board);
-
-	System.out.println("AI chose: " + bestMove);
-
-	// Check if AI chose to give check with queen
-	if (bestMove.getFrom() == Square.F3 && bestMove.getTo() == Square.F7) {
-	    System.out.println("❌ FAILED: AI gave unsafe check with queen!");
-	} else {
-	    System.out.println("✅ PASSED: AI avoided unsafe queen check");
+	    board.undoMove();
+	} finally {
+	    ai.cleanup();
 	}
     }
 
     /**
-     * Test that the engine avoids giving check with a rook when it can be captured
+     * Test that the engine prefers capturing a free queen over giving check. A
+     * black queen is placed on f7 where it can be captured.
      */
-    private static void testUnsafeRookCheck() {
-	System.out.println("\n=== Testing Unsafe Rook Check ===");
-
-	// Position where rook can give check but would be captured
-	final var fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKB1R w KQkq - 0 1";
+    @Test
+    @DisplayName("Prefer Queen Capture Over Check")
+    @Timeout(value = 30, unit = TimeUnit.SECONDS)
+    void testCheckVsQueenCapture() {
 	final var board = new Board();
-	board.loadFromFen(fen);
+	board.loadFromFen("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
 
-	// Move rook to give check position
-	board.doMove(new Move(Square.H1, Square.H8));
-
-	System.out.println("Position: Rook on h8 giving check but can be captured");
+	// Place opponent queen in capturable position
+	board.setPiece(Piece.BLACK_QUEEN, Square.F7);
 
 	final var ai = new ChessAI();
-	final var bestMove = ai.getBestMove(board);
+	try {
+	    final var bestMove = ai.getBestMove(board);
+	    assertNotNull(bestMove, "AI should find a move");
 
-	System.out.println("AI chose: " + bestMove);
+	    // Check if AI captured the queen
+	    final var captured = board.getPiece(bestMove.getTo());
+	    if (captured == Piece.BLACK_QUEEN) {
+		// Best outcome — AI captured the queen
+		return;
+	    }
 
-	// This is more complex to analyze automatically, but the idea is that
-	// the engine should not prioritize hanging the rook just for check
-	System.out.println("✅ Test recorded: " + bestMove);
+	    // If AI didn't capture the queen, it should at least not give an unsafe check
+	    board.doMove(bestMove);
+	    final var givesCheck = board.isKingAttacked();
+	    assertTrue(!givesCheck,
+		    "AI should capture the queen or make a safe move, not give check. Chose: " + bestMove);
+	    board.undoMove();
+	} finally {
+	    ai.cleanup();
+	}
     }
 }

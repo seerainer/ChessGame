@@ -1,12 +1,14 @@
 package io.github.seerainer.chess.ai.search;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.github.bhlangonijr.chesslib.Board;
 import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.move.Move;
 
 import io.github.seerainer.chess.ai.MoveGenerator;
+import io.github.seerainer.chess.ai.MoveOrdering;
 import io.github.seerainer.chess.ai.PositionEvaluator;
 import io.github.seerainer.chess.ai.StaticExchangeEvaluator;
 import io.github.seerainer.chess.ai.evaluation.MaterialEvaluator;
@@ -24,34 +26,13 @@ public class OptimizedQuiescenceSearch {
     private static final int SEE_PRUNE_THRESHOLD = -50;
     // Maximum quiescence depth to prevent infinite search
     private static final int MAX_QUIESCENCE_DEPTH = ChessConfig.Search.QUIESCENCE_MAX_DEPTH;
-    private static int nodeCount = 0;
-    private static int deltaPruningCount = 0;
-    private static int seePruningCount = 0;
+    // Statistics counters (atomic for thread-safety in parallel search)
+    private static final AtomicInteger nodeCount = new AtomicInteger(0);
+    private static final AtomicInteger deltaPruningCount = new AtomicInteger(0);
+    private static final AtomicInteger seePruningCount = new AtomicInteger(0);
 
     private OptimizedQuiescenceSearch() {
 	throw new IllegalStateException("Utility class");
-    }
-
-    /**
-     * Calculate MVV-LVA score for move ordering
-     */
-    private static int calculateMVVLVA(final Board board, final Move move) {
-	final var victim = board.getPiece(move.getTo());
-	final var attacker = board.getPiece(move.getFrom());
-
-	if (victim == Piece.NONE) {
-	    // Not a capture, check for promotions
-	    if (move.getPromotion() != Piece.NONE) {
-		return 8000 + MaterialEvaluator.getPieceValue(move.getPromotion());
-	    }
-	    return 0; // Non-tactical move
-	}
-
-	// MVV-LVA scoring: victim value * 100 - attacker value
-	final var victimValue = Math.abs(MaterialEvaluator.getPieceValue(victim));
-	final var attackerValue = Math.abs(MaterialEvaluator.getPieceValue(attacker));
-
-	return victimValue * 100 - attackerValue;
     }
 
     /**
@@ -61,10 +42,10 @@ public class OptimizedQuiescenceSearch {
 	// Use existing tactical move generation but with optimizations
 	final var tacticalMoves = MoveGenerator.generateTacticalMoves(board);
 
-	// Pre-sort captures by MVV-LVA (Most Valuable Victim - Least Valuable Attacker)
+	// Pre-sort captures using MoveOrdering.scoreTacticalMove for better ordering
 	tacticalMoves.sort((move1, move2) -> {
-	    final var score1 = calculateMVVLVA(board, move1);
-	    final var score2 = calculateMVVLVA(board, move2);
+	    final var score1 = MoveOrdering.scoreTacticalMove(board, move1);
+	    final var score2 = MoveOrdering.scoreTacticalMove(board, move2);
 	    return Integer.compare(score2, score1); // Descending order
 	});
 
@@ -75,8 +56,8 @@ public class OptimizedQuiescenceSearch {
      * Get statistics about quiescence search performance
      */
     public static String getStatistics() {
-	return "Quiescence - Nodes: %d, Delta pruning: %d, SEE pruning: %d".formatted(nodeCount, deltaPruningCount,
-		seePruningCount);
+	return "Quiescence - Nodes: %d, Delta pruning: %d, SEE pruning: %d".formatted(nodeCount.get(),
+		deltaPruningCount.get(), seePruningCount.get());
     }
 
     /**
@@ -90,7 +71,7 @@ public class OptimizedQuiescenceSearch {
      * Optimized quiescence search with multiple pruning techniques
      */
     public static int quiescenceSearch(final Board board, int alpha, final int beta, final int depth) {
-	nodeCount++;
+	nodeCount.incrementAndGet();
 
 	// Depth limit check
 	if (depth <= -MAX_QUIESCENCE_DEPTH) {
@@ -107,7 +88,7 @@ public class OptimizedQuiescenceSearch {
 
 	// Delta pruning - if even capturing the best piece can't improve alpha
 	if (standPat < alpha - DELTA_PRUNING_MARGIN) {
-	    deltaPruningCount++;
+	    deltaPruningCount.incrementAndGet();
 	    // Check if capturing the most valuable piece could still help
 	    final var bigDelta = standPat + BIG_DELTA_MARGIN;
 	    if (bigDelta < alpha) {
@@ -127,7 +108,7 @@ public class OptimizedQuiescenceSearch {
 	for (final var move : tacticalMoves) {
 	    // SEE pruning - skip moves that lose material
 	    if (StaticExchangeEvaluator.calculateSEE(board, move) < SEE_PRUNE_THRESHOLD) {
-		seePruningCount++;
+		seePruningCount.incrementAndGet();
 		continue;
 	    }
 
@@ -138,7 +119,7 @@ public class OptimizedQuiescenceSearch {
 
 		// If even this capture can't improve alpha significantly, skip
 		if (standPat + captureValue + DELTA_PRUNING_MARGIN < alpha) {
-		    deltaPruningCount++;
+		    deltaPruningCount.incrementAndGet();
 		    continue;
 		}
 	    }
@@ -164,7 +145,7 @@ public class OptimizedQuiescenceSearch {
      * Enhanced quiescence search that also considers checks
      */
     public static int quiescenceSearchWithChecks(final Board board, final int alpha, final int beta, final int depth) {
-	nodeCount++;
+	nodeCount.incrementAndGet();
 
 	// Depth limit
 	if (depth <= -MAX_QUIESCENCE_DEPTH) {
@@ -186,16 +167,16 @@ public class OptimizedQuiescenceSearch {
      * Reset node count
      */
     public static void resetNodeCount() {
-	nodeCount = 0;
+	nodeCount.set(0);
     }
 
     /**
      * Reset all statistics counters
      */
     public static void resetStatistics() {
-	nodeCount = 0;
-	deltaPruningCount = 0;
-	seePruningCount = 0;
+	nodeCount.set(0);
+	deltaPruningCount.set(0);
+	seePruningCount.set(0);
     }
 
     /**
