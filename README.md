@@ -128,7 +128,7 @@ The AI can be configured with various parameters:
 ```
 src/
 ├── main/java/io/github/seerainer/chess/
-│   ├── Main.java                 # Application entry point
+│   ├── Main.java                # Application entry point
 │   ├── ChessGameUI.java         # Main user interface
 │   ├── ChessBoard.java          # Board representation
 │   ├── ChessAI.java             # AI coordinator
@@ -256,3 +256,4 @@ For questions, bug reports, or feature requests:
 ---
 
 *Built with ❤️ for chess enthusiasts*
+
