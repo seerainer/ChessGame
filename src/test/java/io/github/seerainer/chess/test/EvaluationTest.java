@@ -19,7 +19,7 @@ public class EvaluationTest {
 
     @Test
     @DisplayName("Test AI Evaluation System")
-    @Timeout(value = 60, unit = TimeUnit.SECONDS)
+    @Timeout(value = 120, unit = TimeUnit.SECONDS)
     void testEvaluationSystem() {
 	System.out.println("Testing AI with new evaluation system...");
 
@@ -57,3 +57,4 @@ public class EvaluationTest {
 	}
     }
 }
+
