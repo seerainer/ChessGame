@@ -7,9 +7,9 @@ This document provides essential information for AI coding agents working on thi
 ## Project Overview
 
 **Type**: Java 25 Chess Application with AI Engine  
-**Build System**: Gradle 8.0+  
+**Build System**: Gradle (see `gradle/wrapper/gradle-wrapper.properties` for exact version)  
 **GUI Framework**: Eclipse SWT  
-**Chess Library**: ChessLib 1.3.4  
+**Chess Library**: ChessLib (see `build.gradle` for exact version)  
 **Package**: `io.github.seerainer.chess`
 
 **Architecture**: Component-based evaluation system with multiple search engines (Standard, Advanced, Parallel, Tournament). Uses Strategy, Composite, and Facade patterns. Centralized configuration in `ChessConfig.java`.
@@ -45,11 +45,8 @@ This document provides essential information for AI coding agents working on thi
 ./gradlew test --tests "*Tactical*"
 ./gradlew test --tests "*Puzzle*"
 
-# Custom test suites
-./gradlew runSimpleTest            # Basic component tests
-./gradlew runChessAITest           # AI performance tests
-./gradlew runSearchEngineTest      # Search engine tests
-./gradlew runAllCustomTests        # All custom suites
+# Note: Custom test suites can be run by combining --tests filters,
+# for example by package, naming convention, or patterns as above.
 ./gradlew benchmark                # Performance benchmarks
 ```
 
