@@ -1,8 +1,10 @@
 package io.github.seerainer.chess.ai.utils;
 
 import com.github.bhlangonijr.chesslib.Board;
+import com.github.bhlangonijr.chesslib.File;
 import com.github.bhlangonijr.chesslib.Piece;
 import com.github.bhlangonijr.chesslib.PieceType;
+import com.github.bhlangonijr.chesslib.Rank;
 import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.Square;
 
@@ -128,17 +130,9 @@ public class ChessUtils {
 	var r = fromRank + dRank;
 
 	while (f != toFile || r != toRank) {
-	    // Build square name from file/rank indices
-	    final var fileChar = (char) ('a' + f);
-	    final var rankChar = (char) ('1' + r);
-	    try {
-		final var sq = Square.valueOf(
-			(new StringBuilder().append("").append(fileChar).append(rankChar).toString()).toUpperCase());
-		if (board.getPiece(sq) != Piece.NONE) {
-		    return false; // Blocked
-		}
-	    } catch (final IllegalArgumentException e) {
-		return false; // Invalid square
+	    final var sq = Square.encode(Rank.allRanks[r], File.allFiles[f]);
+	    if (board.getPiece(sq) != Piece.NONE) {
+		return false; // Blocked
 	    }
 	    f += dFile;
 	    r += dRank;
