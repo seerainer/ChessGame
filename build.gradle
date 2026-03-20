@@ -8,12 +8,20 @@ plugins {
 group = 'io.github.seerainer.chess'
 version = '0.1.2'
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+        vendor = JvmVendorSpec.ORACLE // GRAAL_VM
+    }
+}
+
 repositories {
     mavenCentral()
     maven { url = 'https://jitpack.io' }
 }
 
 ext {
+    swtVersion = '3.133.0'
     swtArtifact = 'org.eclipse.swt.'
     os = System.getProperty("os.name").toLowerCase()
     arch = System.getProperty("os.arch")
@@ -22,39 +30,39 @@ ext {
     swtOS = 'unknown'
 }
 
-switch (os) {
-    case 'linux':
-        swtArtifact += 'gtk.linux.'
-        swtWS = 'gtk'
-        swtOS = 'linux'
-        break
-    case 'mac os x':
+def detectSwtArtifact() {
+    if (os.contains("win")) {
+        swtArtifact += 'win32.win32.'
+        swtWS = 'win32'
+        swtOS = 'win32'
+    } else if (os.contains("mac")) {
         swtArtifact += 'cocoa.macosx.'
         swtWS = 'cocoa'
         swtOS = 'macosx'
-        break
-    default:
-        if (os.startsWith("win")) {
-            swtArtifact += 'win32.win32.'
-            swtWS = 'win32'
-            swtOS = 'win32'
-        }
-}
+    } else if (os.contains("linux")) {
+        swtArtifact += 'gtk.linux.'
+        swtWS = 'gtk'
+        swtOS = 'linux'
+    } else {
+        throw new GradleException("Unsupported OS: ${os}")
+    }
 
-switch (arch) {
-    case ['amd64', 'x86_64']:
+    if (arch == 'x86_64' || arch == 'amd64') {
         swtArtifact += 'x86_64'
         normalizedArch = 'x86_64'
-        break
-    case 'aarch64':
+    } else if (arch == 'aarch64') {
         swtArtifact += 'aarch64'
         normalizedArch = 'aarch64'
-        break
+    } else {
+        throw new GradleException("Unsupported architecture: ${arch}")
+    }
+
+    return "org.eclipse.platform:${swtArtifact}:${swtVersion}"
 }
 
 dependencies {
-    implementation("org.eclipse.platform:${swtArtifact}:3.132.0") {
-        exclude group: 'org.eclipse.platform', module: 'org.eclipse.swt'    
+    implementation(detectSwtArtifact()) {
+        exclude group: 'org.eclipse.platform', module: 'org.eclipse.swt'
     }
     implementation 'com.github.bhlangonijr:chesslib:1.3.6'
 
@@ -102,12 +110,6 @@ test {
     timeout = Duration.ofMinutes(10)
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
-    }
-}
-
 // Source sets for better organization
 sourceSets {
     main {
@@ -130,18 +132,27 @@ sourceSets {
 
 graalvmNative {
     testSupport = false
-    toolchainDetection = true
+    toolchainDetection = false
 
     binaries {
         main {
             imageName = 'ChessGame'
             mainClass = application.mainClass
             buildArgs.add('-march=compatibility')
-            buildArgs.add('-Ob')
+            buildArgs.add('-Os')
+            buildArgs.add('--initialize-at-build-time=org.eclipse.swt.internal.DPIUtil')
+            buildArgs.add('--initialize-at-build-time=org.eclipse.swt.internal.DPIUtil$AutoScaleMethod')
+            buildArgs.add('--initialize-at-build-time=org.eclipse.swt.internal.DPIUtil$UseSmoothScalingProvider')
             buildArgs.add('--enable-native-access=ALL-UNNAMED')
             buildArgs.add('--no-fallback')
+            buildArgs.add('-H:+UnlockExperimentalVMOptions')
+            buildArgs.add('-H:+RemoveUnusedSymbols')
+            buildArgs.add('-H:+DeleteLocalSymbols')
+            buildArgs.add('-H:+StripDebugInfo')
+            buildArgs.add('-H:+TrackPrimitiveValues')
+            buildArgs.add('-H:+UsePredicates')
             buildArgs.add('-R:MinHeapSize=256m')
-            buildArgs.add('-R:MaxHeapSize=1g')
+            buildArgs.add('-R:MaxHeapSize=4g')
             buildArgs.add('-R:MaxNewSize=512m')
             useFatJar = true
         }
@@ -152,7 +163,7 @@ tasks.withType(Jar).configureEach {
     exclude(
         'META-INF/ECLIPSE*',
         'META-INF/maven/**/**/*',
-   	    'META-INF/versions/9/*',
+        'META-INF/versions/9/*',
         'META-INF/*.txt',
         'about_files/*',
         'version.txt',
@@ -174,7 +185,15 @@ tasks.withType(Jar).configureEach {
         attributes 'SWT-Arch': normalizedArch
     }
     from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+        configurations.runtimeClasspath.collect {
+            if (it.isDirectory()) {
+                it
+            } else if (it.name.endsWith('.jar') || it.name.endsWith('.zip')) {
+                zipTree(it)
+            } else {
+                files() // Skip non-archive files (e.g., POM-only artifacts)
+            }
+        }
     }
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
